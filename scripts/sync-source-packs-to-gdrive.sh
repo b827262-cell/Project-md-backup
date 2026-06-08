@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="${PROJECT_MD_ROOT:-$HOME/Project-md-backup}"
 SRC="$ROOT/docs/project/SOURCE_PACKS"
-REMOTE="${GDRIVE_REMOTE:-gdrive:}"
+REMOTE="${GDRIVE_REMOTE:-rclone:}"
 DRIVE_FOLDER_ID="${GDRIVE_FOLDER_ID:-1mnPM3QkUBUQuy0T14kgqYqqEp8BUdsBn}"
 
 echo "[gdrive-sync] source: $SRC"
