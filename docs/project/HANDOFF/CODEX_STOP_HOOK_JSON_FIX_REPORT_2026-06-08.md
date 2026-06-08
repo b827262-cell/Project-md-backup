@@ -1,0 +1,11 @@
+CODEX_STOP_HOOK_JSON_FIX_STATUS = PASS
+WRAPPER_PATH = ~/Project-md-backup/scripts/codex-stop-sync-wrapper.sh
+STDOUT_BYTES = 0
+STDERR_BYTES = 0
+HOOK_COMMAND = /bin/bash -lc '$HOME/Project-md-backup/scripts/codex-stop-sync-wrapper.sh'
+EXTRA_STOP_HOOKS_FOUND = NO
+EXTRA_STOP_HOOKS_DETAIL = No active extra Stop hooks found under ~/.codex or ~/project/smartbook-lite-rc1/.codex. Historical backup hook files exist under ~/.codex but are not active.
+HOOKS_JSON_BACKUP = /home/b827262/.codex/hooks.json.bak-20260608-135707
+RESTART_CODEX_REQUIRED = YES
+TRUST_REQUIRED = YES
+NEXT_ACTIONS = Fully exit Codex CLI; cd ~/project/smartbook-lite-rc1; relaunch Codex CLI; run /hooks; confirm the Stop hook command is /bin/bash -lc '$HOME/Project-md-backup/scripts/codex-stop-sync-wrapper.sh'; trust the hook again; then end one short session to verify no more "invalid stop hook JSON output" error.
