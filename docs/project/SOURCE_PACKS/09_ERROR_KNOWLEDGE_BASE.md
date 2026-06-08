@@ -10,10 +10,11 @@ Read This When: hitting a known error
 
 ## Current Truth
 
-_No raw reports matched yet._
 ## Related Raw Reports
 
-_None._
+- `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_RC1_HOTFIX2_STATS_REPORT.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_RC1_HOTFIX1_REPORT.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/SMARTBOOK_ROUTER_RC1_FIX_A_REPORT.md`
 
 ## Next Actions
 

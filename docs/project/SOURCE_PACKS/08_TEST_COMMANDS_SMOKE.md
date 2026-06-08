@@ -10,10 +10,9 @@ Read This When: running validation
 
 ## Current Truth
 
-_No raw reports matched yet._
 ## Related Raw Reports
 
-_None._
+- `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_SMOKE_TEST_REPORT.md`
 
 ## Next Actions
 
