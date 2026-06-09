@@ -1,6 +1,6 @@
 # 06_VPS_LITE_DEPLOYMENT
 
-Last Updated: 2026-06-08
+Last Updated: 2026-06-09
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: VPS deployment + RAM budget
 Read This When: deployment, memory tuning
@@ -10,10 +10,16 @@ Read This When: deployment, memory tuning
 
 ## Current Truth
 
-_No raw reports matched yet._
 ## Related Raw Reports
 
-_None._
+- `docs/project/RAW_REPORTS/VPS_LITE/VPS_LITE_DEPLOYMENT_VALIDATION.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/VPS_LITE_DEPLOYMENT_HANDOFF.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/VPS_DEPLOYMENT_RUNBOOK.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/VPS_BETTER_SQLITE3_PROBE.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/SQLITE_VPS_ENVIRONMENT_VERIFICATION.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/RC1_DEPLOYMENT_BLOCKER_ARBITRATION.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/POST_REMEDIATION_DEPLOYMENT_REVIEW.md`
+- `docs/project/RAW_REPORTS/VPS_LITE/DEPLOYMENT_BLOCKER_REMEDIATION_REPORT.md`
 
 ## Next Actions
 

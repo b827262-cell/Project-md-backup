@@ -1,6 +1,6 @@
 # 03_SQLITE_RC1_MASTER
 
-Last Updated: 2026-06-08
+Last Updated: 2026-06-09
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: SQLite RC1 consolidated truth
 Read This When: SQLite runtime, RC1 validation
@@ -9,6 +9,40 @@ Read This When: SQLite runtime, RC1 validation
 > holds only each report's `## Current Truth` section + an index.
 
 ## Current Truth
+
+### PHASE_2D_G_HOME_CATALOG_UNCATEGORIZED_BOOK_BROWSER_VERIFY.md
+
+
+```
+HOME_PUBLIC_BOOK_VISIBLE        = PASS
+PUBLIC_BOOK_TITLE               = T
+PUBLIC_BOOK_CATEGORY_FALLBACK   = 未分類書本
+GET_SUBJECTS_RESULT             = PASS (returns virtual id=0 entry)
+GET_SUBJECT_WITH_TEACHERS_0     = PASS (returns book T under 未知老師)
+PNPM_BUILD                      = PASS (5 pre-existing warnings, no new errors)
+SERVER_FILES_TOUCHED            = server/routers/tutorRouter.ts
+CLIENT_FILES_TOUCHED            = NONE
+SCHEMA_FILES_TOUCHED            = NONE
+```
+
+---
+
+### PHASE_2D_E_RC1_RUNTIME_GATE_SMOKE_TEST.md
+
+
+- RC1_STUDENT_RUNTIME_GATE = PASS
+- SQLITE_TABLE_COUNT = 76
+- SQLITE_SCHEMA_IMPORT_OK = YES
+- SQLITE_PUSH_SMOKE = PASS
+- RC1_INSERT_SELECT_SMOKE = PASS (16/16 tables)
+- PROVIDER_MODE_SMOKE = PASS (isSqliteMode=true, 16/16 tables present with rows)
+- PNPM_BUILD = PASS (5 pre-existing warnings, no errors)
+- SQLITE_LEFTOVERS = 0 (Phase 2D-E temporary smoke artifacts only)
+- PUSH_METHOD = direct drizzle-kit CLI with `--url=/tmp/phase2d-e-rc1-smoke.db --force`
+- FORMAL_DB_TOUCHED = NO
+- No schema / router / client / db.ts changes in this phase
+
+---
 
 ## Related Raw Reports
 
@@ -23,7 +57,6 @@ Read This When: SQLite runtime, RC1 validation
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1C_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1B_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1A_REPORT.md`
-- `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_VPS_ENVIRONMENT_VERIFICATION.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_TIMESTAMP_REMAINING_AUDIT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_SMOKE_TEST_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_SCHEMA_STUB_EXPANSION_REPORT.md`
@@ -75,6 +108,17 @@ Read This When: SQLite runtime, RC1 validation
 - `docs/project/RAW_REPORTS/SQLITE_RC1/RC1_DEPLOYMENT_BLOCKER_ARBITRATION.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/POST_REMEDIATION_DEPLOYMENT_REVIEW.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_3_PROTECTION_FINAL_REPORT.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2K_RC1_POST_VALIDATION_ROLLOUT_PLAN.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2J_RC1_VPS_DEPLOYMENT_VALIDATION.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2I_PUSH_RC1_SQLITE_GATE_AND_VPS_PREP.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_G_SQLITE_RC1_DIFF_TRIAGE_AND_COMMIT_READINESS.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_G_HOME_CATALOG_UNCATEGORIZED_BOOK_BROWSER_VERIFY.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_F_REPORT_CLEANUP_AND_FINAL_DIFF_CHECK.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_E_RC1_RUNTIME_GATE_SMOKE_TEST.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_D_SQLITE_REMAINING_HIGH_NO_PATCH_REVIEW.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_C_SQLITE_ACTIVE_RUNTIME_GAP_PATCH.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_B_SQLITE_REMAINING_HIGH_GAP_REVIEW.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_A_SQLITE_SCHEMA_MINIMAL_GAP_PATCH.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/NODE22_SQLITE_VALIDATION_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/MYSQL_TO_SQLITE_SCHEMA_AUDIT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/MYSQL_TO_SQLITE_LITE_SCOPE_AUDIT.md`

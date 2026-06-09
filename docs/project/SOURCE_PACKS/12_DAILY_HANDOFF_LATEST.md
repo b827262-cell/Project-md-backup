@@ -1,6 +1,6 @@
 # 12_DAILY_HANDOFF_LATEST
 
-Last Updated: 2026-06-08
+Last Updated: 2026-06-09
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Most recent handoff snapshot
 Read This When: resuming work
@@ -10,10 +10,15 @@ Read This When: resuming work
 
 ## Current Truth
 
-_No raw reports matched yet._
 ## Related Raw Reports
 
-_None._
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_RELEASE_READINESS.md`
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_RELEASE_CHECKLIST.md`
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_RELEASE_BUNDLE_REVIEW.md`
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_RELEASE_BUNDLE_REPORT.md`
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_RELEASE_ARTIFACT_INVENTORY.md`
+- `docs/project/RAW_REPORTS/HANDOFF/RC1_DEPLOYMENT_CHECKLIST.md`
+- `docs/project/RAW_REPORTS/HANDOFF/DEPLOYMENT_MANIFEST.md`
 
 ## Next Actions
 

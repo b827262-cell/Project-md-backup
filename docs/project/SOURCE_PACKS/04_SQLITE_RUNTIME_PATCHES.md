@@ -1,6 +1,6 @@
 # 04_SQLITE_RUNTIME_PATCHES
 
-Last Updated: 2026-06-08
+Last Updated: 2026-06-09
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Applied runtime patches
 Read This When: reviewing what was already patched
@@ -30,6 +30,9 @@ Read This When: reviewing what was already patched
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SMARTBOOK_ROUTER_PATCH_1B_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SMARTBOOK_ROUTER_PATCH_1A_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SMARTBOOKROUTER_PATCH_1C_REPORT.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_D_SQLITE_REMAINING_HIGH_NO_PATCH_REVIEW.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_C_SQLITE_ACTIVE_RUNTIME_GAP_PATCH.md`
+- `docs/project/RAW_REPORTS/SQLITE_RC1/PHASE_2D_A_SQLITE_SCHEMA_MINIMAL_GAP_PATCH.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/LOCAL_AUTH_SQLITE_PATCH_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/DB_RUNTIME_PATCH_1K5_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/DB_RUNTIME_PATCH_1K4_REPORT.md`
