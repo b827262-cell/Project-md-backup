@@ -23,6 +23,59 @@ Checkpoint: 新增兩大功能：
    - 後端用 Vision LLM 辨識文字。
    - 可編輯後插入到編輯器。
 
+## Checkpoint: SmartSolve AI 視覺辨識兩階段 OCR
+
+### 功能摘要
+
+- 第一階段 PDF → Markdown OCR。
+- 第二階段 Markdown → 結構化 JSON。
+- 頁數上限從 10 頁提升到 20 頁。
+- 前端 Dialog 顯示兩階段進度說明。
+- 截圖模式可能跳過第一階段，直接進 JSON 提取。
+
+### 涉及檔案
+
+- `client/src/pages/AdminSmartSolve.tsx`
+- `server/routers/smartSolveRouter.ts`
+- `check_symbols.mjs`
+- `client/public/__manus__/version.json`
+
+### 風險分析
+
+- Value: HIGH
+- Risk: MEDIUM-HIGH
+- Touches UI: YES
+- Touches Server: YES
+- Touches DB Schema: NO
+- SQLite RC1 Risk: LOW-MEDIUM
+- LLM Cost Risk: HIGHER THAN BEFORE
+- Timeout Risk: HIGHER THAN BEFORE
+
+### 特別注意
+
+- `check_symbols.mjs` 使用 `DATABASE_URL` 查 MySQL，不可在 production DB 隨意執行。
+- `version.json` 不同步。
+- 兩階段 LLM 流程需要測 PDF 模式與截圖模式。
+- 頁數上限提升到 20 頁會增加成本與 timeout 風險。
+- 不可混入 PR #15。
+
+### 建議 branch
+
+`sync/upstream-0520-0610-smartsolve-two-stage-ocr`
+
+### 建議同步方式
+
+manual port，不建議直接 cherry-pick。
+
+### Required gates
+
+- `pnpm build`
+- SmartSolve PDF OCR smoke
+- SmartSolve screenshot smoke
+- 10–20 頁長頁數 smoke
+- timeout / fallback / error handling check
+- 不執行 `check_symbols.mjs`，除非是安全測試 DB
+
 ## 2. Upstream Reference
 
 - repo: `iamflashon/ai_tutor_helper`
@@ -37,6 +90,7 @@ Checkpoint: 新增兩大功能：
 - FloatingNotepad / video toolbar：improves study workflow around video/PDF learning, but likely touches UI state and content persistence.
 - PDF / OCR / screenshot paste：strong productivity feature, but requires careful upload/storage, OCR cost, and content sanitation review.
 - smart book quick buttons / applyToBooks：useful classroom workflow, likely needs schema and admin UX review.
+- SmartSolve AI 視覺辨識兩階段 OCR：high-value OCR/structured extraction workflow, but increases LLM cost and timeout risk.
 - cleanMarkdown 強化：lower-risk utility candidate if isolated and covered by regression tests.
 - preview job async endpoint：useful for long-running preview generation, but requires server-side job lifecycle and error handling review.
 - lesson_points / batchAutoProcess 修正：potentially important data correctness fix; should be separated from feature sync.
@@ -51,6 +105,7 @@ Checkpoint: 新增兩大功能：
 | FloatingNotepad / video toolbar | Medium-High | Yes | Yes | Maybe | Medium | Manual UI port, then runtime smoke | `sync/upstream-0520-0610-quiz-notepad` |
 | PDF / OCR / screenshot paste | High | Yes | Yes | Maybe | Medium-High | Separate PR, storage/OCR safety review | `sync/upstream-0520-0610-pdf-ocr-preview` |
 | smart book quick buttons / applyToBooks | Medium-High | Yes | Yes | Yes | High | Schema-first review, then UI/server port | `sync/upstream-0520-0610-db-schema-review` |
+| SmartSolve AI 視覺辨識兩階段 OCR | High | Yes | Yes | No | Low-Medium | Manual port, no direct cherry-pick | `sync/upstream-0520-0610-smartsolve-two-stage-ocr` |
 | cleanMarkdown 強化 | Medium | No | Maybe | No | Low | Cherry-pick utility + tests | `sync/upstream-0520-0610-docs-utils` |
 | preview job async endpoint | Medium | Yes | Yes | Maybe | Medium | Manual port with job lifecycle review | `sync/upstream-0520-0610-pdf-ocr-preview` |
 | lesson_points / batchAutoProcess 修正 | Medium-High | Maybe | Yes | Maybe | Medium-High | Separate bugfix PR, no feature mixing | `sync/upstream-0520-0610-docs-utils` |
@@ -82,6 +137,7 @@ Checkpoint: 新增兩大功能：
 - `sync/upstream-0520-0610-exam-cross-book-relation`
 - `sync/upstream-0520-0610-quiz-notepad`
 - `sync/upstream-0520-0610-pdf-ocr-preview`
+- `sync/upstream-0520-0610-smartsolve-two-stage-ocr`
 - `sync/upstream-0520-0610-db-schema-review`
 
 ## 8. Final Verdict
