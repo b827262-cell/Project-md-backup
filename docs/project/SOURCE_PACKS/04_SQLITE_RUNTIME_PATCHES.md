@@ -1,6 +1,6 @@
 # 04_SQLITE_RUNTIME_PATCHES
 
-Last Updated: 2026-06-09
+Last Updated: 2026-06-10
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Applied runtime patches
 Read This When: reviewing what was already patched

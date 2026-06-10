@@ -1,6 +1,6 @@
 # 06_VPS_LITE_DEPLOYMENT
 
-Last Updated: 2026-06-09
+Last Updated: 2026-06-10
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: VPS deployment + RAM budget
 Read This When: deployment, memory tuning
