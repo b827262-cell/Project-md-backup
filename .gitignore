@@ -1,6 +1,6 @@
-
 # Project MD auto source-pack state
 .source-pack-state
 .source-pack.lock
 
 logs/
+.daily-md-sync-date
