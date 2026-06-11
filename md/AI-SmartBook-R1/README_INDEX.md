@@ -19,6 +19,6 @@ Recommended reading order:
 
 ---
 Sync Information:
-- Date: 2026-06-11T14:45:54+08:00
-- Source Branch: feature/phase-0-5-smartbook-mvp
-- Source Commit: fed878c
+- Date: 2026-06-11T15:14:26+08:00
+- Source Branch: main
+- Source Commit: 8bfa532
