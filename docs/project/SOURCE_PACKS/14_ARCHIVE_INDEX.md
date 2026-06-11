@@ -1,6 +1,6 @@
 # 14_ARCHIVE_INDEX
 
-Last Updated: 2026-06-10
+Last Updated: 2026-06-11
 Purpose: Full index of every raw report (overflow map for the 25-source limit)
 Read This When: finding archived detail not inlined in any pack
 
@@ -29,7 +29,6 @@ open them in GitHub when a pack points here.
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1C_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1B_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/TUTOR_ROUTER_PATCH_1J1A_REPORT.md`
-- `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_VPS_ENVIRONMENT_VERIFICATION.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_TIMESTAMP_REMAINING_AUDIT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_SMOKE_TEST_REPORT.md`
 - `docs/project/RAW_REPORTS/SQLITE_RC1/SQLITE_SCHEMA_STUB_EXPANSION_REPORT.md`
