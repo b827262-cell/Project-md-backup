@@ -1,6 +1,6 @@
 # 09_ERROR_KNOWLEDGE_BASE
 
-Last Updated: 2026-06-12
+Last Updated: 2026-06-15
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Known errors + fixes
 Read This When: hitting a known error
