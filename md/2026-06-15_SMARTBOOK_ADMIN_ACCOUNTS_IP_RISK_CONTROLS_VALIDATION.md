@@ -179,7 +179,88 @@ packages/schema/src/chat.schema.ts
 
 ---
 
-## 7. 驗收判定
+## 7. AGY 最終驗證回報
+
+AGY 於後續驗證流程中回報最終狀態為：
+
+```text
+PASS
+```
+
+驗證對象：
+
+```text
+後台帳號 IP 追蹤與風險控管功能
+```
+
+### 7.1 後台欄位驗證
+
+| 項目 | 結果 |
+|---|---|
+| IP 位址 | PASS，正確取得並顯示 |
+| IP 位置 | PASS，透過 `describeIpLocation` 顯示 |
+| 風險標記 | PASS，提供下拉選單對應狀態 |
+| 封鎖狀態 | PASS，顯示為「正常」或「已封鎖」 |
+| 管理操作 | PASS，提供風險等級切換與封鎖 / 解除封鎖按鈕 |
+
+### 7.2 風險標記驗證
+
+| 風險狀態 | 顯示 | 結果 |
+|---|---|---|
+| `safe` | 安全 | PASS |
+| `risk` | 風險 | PASS |
+| `dangerous` | 危險 | PASS |
+
+重新整理後是否保留：PASS。修改後前端會呼叫 `load()` 從資料庫重新取得狀態，確認變更持久化。
+
+### 7.3 封鎖 / 解除封鎖驗證
+
+| 項目 | 結果 |
+|---|---|
+| 封鎖是否成功 | PASS |
+| 解除封鎖是否成功 | PASS |
+| `blockedReason` 是否保存 | PASS，可透過 prompt 輸入並傳給後端寫入 |
+| `blockedAt` 是否保存 | PASS，封鎖時會寫入時間戳記 |
+
+### 7.4 學生端阻擋驗證
+
+| 項目 | 結果 |
+|---|---|
+| blocked session 是否回 403 | PASS，透過 `rejectIfBlocked` 檢查 `session?.isBlocked` |
+| 相同公開 IP 是否回 403 | PASS，透過 `repos.chat.isIpBlocked(ip)` 跨 session 阻擋 |
+| 不同 IP 是否可通過 | PASS |
+| 解除封鎖後是否恢復 200 | PASS |
+| 封鎖訊息是否正確 | PASS，回應 `This account/session has been blocked by the administrator.` |
+
+### 7.5 IP 偵測驗證
+
+| 項目 | 結果 |
+|---|---|
+| `TRUST_PROXY=false` 時是否只使用 socket IP | PASS |
+| `TRUST_PROXY=true` 時是否支援 `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP` | PASS，並依照優先順序解析 |
+| localhost/private IP 是否顯示 `Localhost / Private IP` | PASS，已實作 `isPrivateIp` 過濾與特殊標示 |
+| public IP 無 GeoIP 時是否顯示 `Unknown` | PASS |
+
+### 7.6 DB / Migration 驗證
+
+| 項目 | 結果 |
+|---|---|
+| 是否新增欄位 | PASS，在 `chat_sessions` 中新增 IP 記錄與風控相關欄位 |
+| migration 是否 idempotent | PASS，使用 `addColumnIfMissing` 避免重複修改或破壞 |
+| 是否需要 `pnpm db:push` | 否 |
+| 是否需要 `pnpm db:migrate` 或 `runMigrations` | 是，`server/index.ts` 啟動時會自動執行 `runMigrations(sqlite)` 完成綱要升級 |
+
+### 7.7 最終驗證結論
+
+AGY 結論：
+
+```text
+dfa659b 實作邏輯完整清晰、防禦到位且無夾帶無關變更，可以接受 (PASS)。
+```
+
+---
+
+## 8. 驗收判定
 
 本次功能可判定為：
 
@@ -187,22 +268,25 @@ packages/schema/src/chat.schema.ts
 ADMIN_ACCOUNTS_IP_RISK_CONTROLS_ACCEPTED
 COMMIT_ACCEPTED
 WORKTREE_CLEAN
+AGY_VALIDATION_PASS
 DEPLOYMENT_MIGRATION_CHECK_REQUIRED
 NOT_READY_FOR_FINAL_MERGE_OR_DEPLOY
 ```
 
-### 7.1 可接受項目
+### 8.1 可接受項目
 
 - 後台帳號列表已新增 IP 欄位
 - 後台帳號列表已新增 IP 位置顯示
 - 風險標記：安全 / 風險 / 危險已完成
 - 封鎖 / 解除封鎖 UI 已完成
 - 學生端 chat / session endpoint 已有 403 阻擋
+- 相同公開 IP 跨 session 封鎖已驗證
+- TRUST_PROXY 行為已驗證
 - build/typecheck 通過
 - working tree clean
 - 未混入 unrelated UI / PDF / chapter 變更
 
-### 7.2 部署前注意事項
+### 8.2 部署前注意事項
 
 正式部署前仍需確認：
 
@@ -218,7 +302,7 @@ TRUST_PROXY=true
 
 ---
 
-## 8. 下一步建議
+## 9. 下一步建議
 
 目前不建議直接 final merge / deploy。
 
@@ -226,17 +310,22 @@ TRUST_PROXY=true
 
 ```text
 1. 執行只讀確認：git log / git status / git show
-2. 於本機 UI 再次操作 /admin/accounts
-3. 確認封鎖、解除封鎖、風險標記能在重新整理後保留
-4. 確認正式部署環境 migration 策略
-5. 再決定 push / PR / merge / deploy
+2. 確認正式部署環境 migration 策略
+3. 確認正式環境是否經過 Nginx / Cloudflare，並設定 TRUST_PROXY=true
+4. 再決定 push / PR / merge / deploy
 ```
 
 ---
 
-## 9. 最終結論
+## 10. 最終結論
 
 `dfa659b` 可接受為後台帳號 IP 與風險控管功能 commit。
+
+AGY 已完成驗證並回報：
+
+```text
+PASS
+```
 
 但此功能涉及 schema/migration 與代理 IP 判定，因此目前狀態仍應維持：
 
