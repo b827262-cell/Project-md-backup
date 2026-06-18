@@ -1,6 +1,6 @@
 # 08_TEST_COMMANDS_SMOKE
 
-Last Updated: 2026-06-17
+Last Updated: 2026-06-18
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Build + smoke test commands
 Read This When: running validation
