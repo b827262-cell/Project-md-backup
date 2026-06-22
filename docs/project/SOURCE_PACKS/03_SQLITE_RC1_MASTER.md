@@ -1,6 +1,6 @@
 # 03_SQLITE_RC1_MASTER
 
-Last Updated: 2026-06-18
+Last Updated: 2026-06-22
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: SQLite RC1 consolidated truth
 Read This When: SQLite runtime, RC1 validation

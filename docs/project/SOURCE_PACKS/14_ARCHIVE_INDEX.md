@@ -1,6 +1,6 @@
 # 14_ARCHIVE_INDEX
 
-Last Updated: 2026-06-18
+Last Updated: 2026-06-22
 Purpose: Full index of every raw report (overflow map for the 25-source limit)
 Read This When: finding archived detail not inlined in any pack
 

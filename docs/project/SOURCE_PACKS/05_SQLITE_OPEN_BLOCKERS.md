@@ -1,6 +1,6 @@
 # 05_SQLITE_OPEN_BLOCKERS
 
-Last Updated: 2026-06-18
+Last Updated: 2026-06-22
 Source Pack Version: auto-generated (mechanical, no-LLM)
 Purpose: Open P0/P1 blockers before cutover
 Read This When: planning next fix
