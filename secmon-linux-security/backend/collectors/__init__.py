@@ -1,1 +1,5 @@
-"""Log collector package placeholder for P1/P2."""
+"""Log collector package for SecMon backend."""
+
+from .ssh_collector import SSHCollector
+
+__all__ = ["SSHCollector"]

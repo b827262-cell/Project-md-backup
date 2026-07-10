@@ -1,0 +1,13 @@
+2026-07-10 10:25:10 sshd[3456]: Failed password for root from INVALID_IP port 22 ssh2
+2026-07-10 10:25:12 sshd[3456]: Failed password for admin from 999.999.999.999 port 22 ssh2
+2026-07-10 10:25:14 sshd[3456]: Failed password for user from 192.168.1.150 port 99999 ssh2
+2026-07-10 10:25:16 sshd[3456]: Failed password for test from 192.168.1.151 port -1 ssh2
+2026-07-10 10:25:18 sshd[3456]: Invalid timestamp format for root from 192.168.1.152 port 22 ssh2
+2026-07-10 10:25:20 sshd[3456]: Failed password for admin from 192.168.1.153 port ABC ssh2
+2026-07-10 10:25:22 sshd[3456]: Failed password for user from 2001:db8::INVALID port 22 ssh2
+2026-07-10 10:25:24 sshd[3456]: Failed password for test from 192.168.1.154 port 22 ssh2
+Corrupted line without proper format
+2026-07-10 10:25:28 sshd[3456]: Failed password for valid from 192.168.1.155 port 22 ssh2
+2026-07-10 10:25:30 sshd[3456]: Invalid user from missing IP port 22 ssh2
+2026-07-10 10:25:32 sshd[3456]: Extra fields line that should be ignored
+2026-07-10 10:25:34 sshd[3456]: Failed password for admin from 192.168.1.156 port 22 ssh2

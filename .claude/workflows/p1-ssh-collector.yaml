@@ -1,0 +1,180 @@
+export const meta = {
+  name: 'p1-ssh-collector-implementation',
+  description: 'Implement P1 SQLite SSH Detector with full validation and handoff',
+  phases: [
+    { title: 'Explore', detail: 'Analyze existing P0 structure and design new components' },
+    { title: 'Design', detail: 'Design SQLite schema, SSH collector, and parser' },
+    { title: 'Implement', detail: 'Build all components with tests' },
+    { title: 'Validate', detail: 'Run comprehensive validation and handoff' },
+  ],
+}
+
+// Phase 1: Explore
+phase('Explore')
+const exploration = await agent('Explore P0 structure: check backend/, database/, existing migrations, and collector architecture. Identify patterns for new implementation.', { label: 'explore-p0', phase: 'Explore', effort: 'medium' })
+const sshPatterns = await agent('Search for existing SSH log parsers in the codebase. Find any existing database patterns or CRUD utilities.', { label: 'explore-ssh', phase: 'Explore', effort: 'medium' })
+const testPatterns = await agent('Review pytest patterns and existing test fixtures in tests/. Look for database testing patterns.', { label: 'explore-tests', phase: 'Explore', effort: 'low' })
+
+// Phase 2: Design
+phase('Design')
+const design = await agent(`Design P1 SQLite SSH Detector based on exploration results:
+1. NEW SQLite migrations: attack_events, attackers, log_sources tables
+2. SSH Journal Collector with cursor persistence
+3. SSH log parser (Failed password / Invalid user)
+4. Event deduplication using event_key
+5. Attackers UPSERT logic
+6. CLI report for last 24h attack IPs
+
+Include:
+- Table schemas with all columns and constraints
+- Parser logic with validation for IPv4/IPv6/Port/Time/Field length
+- Collector architecture with cursor save/load
+- Database transaction management strategy
+- Unit test fixtures and test cases
+
+Provide implementation plan with file paths.`, { label: 'design-p1', phase: 'Design', effort: 'high' })
+
+// Phase 3: Implement
+phase('Implement')
+
+// Create new migrations sequentially
+phase('Create migrations')
+const migration1 = await agent('Create migration file: database/migrations/002_attack_events.sql\n\nInclude schema for attack_events table with event_key, timestamp, source_ip, service, username, failure_reason, created_at', { label: 'migrate-attack_events', phase: 'Implement', effort: 'low' })
+const migration2 = await agent('Create migration file: database/migrations/003_attackers.sql\n\nInclude schema for attackers table with id, ip_address, attack_count, first_seen, last_seen, created_at, updated_at', { label: 'migrate-attackers', phase: 'Implement', effort: 'low' })
+const migration3 = await agent('Create migration file: database/migrations/004_log_sources.sql\n\nInclude schema for log_sources table with id, name, device_path, parser_type, status, last_scanned, created_at', { label: 'migrate-log_sources', phase: 'Implement', effort: 'low' })
+const migration4 = await agent('Create migration file: database/migrations/005_ssh_parser.sql\n\nInclude SSH-specific indexes, triggers, and apply tracking to migration table. Make idempotent.', { label: 'migrate-ssh', phase: 'Implement', effort: 'low' })
+
+// Build SSH collector
+phase('Build SSH Collector')
+const collector = await agent(`Build SSH Journal Collector in backend/collectors/ssh_collector.py
+
+Requirements:
+1. Journal device path: /var/log/auth.log
+2. Read SSH logs in batches
+3. Parse lines: Failed password, Invalid user
+4. Extract: timestamp, source IP, service, username
+5. Deduplicate using event_key (timestamp + source_ip + service + username)
+6. UPSERT into attack_events and attackers tables
+7. Save cursor position after each batch
+8. Handle WAL and busy timeout
+9. Use transactions
+
+Include logging and error handling.`, { label: 'build-collector', phase: 'Implement', effort: 'medium' })
+
+// Build SSH parser
+phase('Build SSH Parser')
+const parser = await agent(`Build SSH Parser in backend/parsers/ssh_parser.py
+
+Requirements:
+1. Parse /var/log/auth.log for SSH entries
+2. Extract: timestamp, source IP, service, username, failure reason
+3. Validate:
+   - IPv4 format
+   - IPv6 format
+   - Port number (1-65535)
+   - Timestamp format
+   - Field lengths
+4. Return structured data or raise validation error
+5. Support both Failed password and Invalid user
+
+Include validation functions and comprehensive test cases.`, { label: 'build-parser', phase: 'Implement', effort: 'medium' })
+
+// Create log sources management
+phase('Build log_sources management')
+const logSources = await agent(`Implement log_sources management
+
+Requirements:
+1. Table: log_sources (id, name, device_path, parser_type, status, last_scanned)
+2. Insert default entries: auth.log (SSH), authpriv.log, secure
+3. Support adding new log sources dynamically
+4. Track last_scan_timestamp for each source
+
+Implement in database/model.py or new file.`, { label: 'build-log-sources', phase: 'Implement', effort: 'low' })
+
+// CLI report
+phase('Build CLI report')
+const cliReport = await agent(`Create CLI report tool in scripts/attack_report.py
+
+Requirements:
+1. Query last 24h attack events from database
+2. Group by source IP
+3. Count failures per IP
+4. Show top 10 attacking IPs sorted by count
+5. Show total attack count
+6. Execute PRAGMA quick_check
+7. Return table format output
+
+Include argparse for optional date range.`, { label: 'build-cli', phase: 'Implement', effort: 'low' })
+
+// Phase 4: Validate
+phase('Validate')
+
+// Create fixtures
+phase('Create test fixtures')
+const fixture1 = await agent('Create SSH failure test fixture in tests/fixtures/ssh_failure.log\n\nInclude:\n- Multiple Failed password entries with different IPs\n- Mix of IPv4 and IPv6\n- Different usernames\n- Varied timestamps\n- Both success and failure mixed with comments', { label: 'fixture-fail', phase: 'Validate', effort: 'low' })
+const fixture2 = await agent('Create SSH Invalid user test fixture in tests/fixtures/ssh_invalid_user.log\n\nInclude:\n- Invalid user entries\n- Different attack patterns\n- Varied timestamps and IPs', { label: 'fixture-invalid', phase: 'Validate', effort: 'low' })
+const fixture3 = await agent('Create malformed log fixture in tests/fixtures/ssh_malformed.log\n\nInclude:\n- Corrupted lines\n- Missing fields\n- Invalid IP formats\n- Invalid port numbers\n- Mixed valid/invalid entries', { label: 'fixture-malformed', phase: 'Validate', effort: 'low' })
+
+// Run tests
+phase('Run tests')
+const test1 = await agent('Run all Python tests with pytest. Check for any failures or errors in tests/.', { label: 'run-py-tests', phase: 'Validate', effort: 'low' })
+const test2 = await agent('Run database migration and verify schema with SQLite PRAGMA. Check for issues.', { label: 'check-migration', phase: 'Validate', effort: 'low' })
+const test3 = await agent('Test SSH parser with fixtures. Verify it handles valid, invalid, and malformed logs correctly.', { label: 'test-parser', phase: 'Validate', effort: 'low' })
+const test4 = await agent('Test SSH collector with real auth.log or fixtures. Verify cursor saving/loading.', { label: 'test-collector', phase: 'Validate', effort: 'low' })
+const test5 = await agent('Run CLI attack report and verify output format and data accuracy.', { label: 'test-cli', phase: 'Validate', effort: 'low' })
+
+// Check Gate criteria
+phase('Check gate criteria')
+const gate1 = await agent('Verify: SSH events are stored within 30 seconds of occurrence. Test with collector.', { label: 'gate-30s', phase: 'Validate', effort: 'low' })
+const gate2 = await agent('Verify: Replay fixtures do not duplicate events. Test with parser.', { label: 'gate-dedup', phase: 'Validate', effort: 'low' })
+const gate3 = await agent('Verify: PRAGMA quick_check returns "ok". Run in database.', { label: 'gate-quickcheck', phase: 'Validate', effort: 'low' })
+const gate4 = await agent('Verify: No blocker or high severity defects. Review all changes.', { label: 'gate-quality', phase: 'Validate', effort: 'medium' })
+
+// Final validation
+phase('Final validation')
+const final = await agent(`Run comprehensive final validation:
+1. Ruff check all code
+2. Mypy type check
+3. Python compileall
+4. All unit tests pass
+5. Integration test with real auth.log
+6. Cursor persistence test
+7. Attackers UPSERT test
+8. Event deduplication test
+9. CLI report test
+10. PRAGMA integrity checks
+
+Report detailed results with any issues found.`, { label: 'final-validation', phase: 'Validate', effort: 'high' })
+
+// Handoff
+phase('Handoff')
+const handoff = await agent(`Create comprehensive handoff documentation in docs/P1_SSH_DETECTOR_HANDOFF.md
+
+Include:
+- Implementation summary
+- Database schema diagrams
+- API/Collector usage guide
+- Test results
+- Known limitations
+- AGY verification checklist
+- Release gate criteria status
+
+Make it ready for AGY review.`, { label: 'create-handoff', phase: 'Handoff', effort: 'medium' })
+
+// Summary
+log('P1 SSH Detector implementation completed successfully!')
+log('- Created migration files for attack_events, attackers, log_sources')
+log('- Built SSH Collector with cursor persistence')
+log('- Implemented SSH Parser with validation')
+log('- Added log_sources management')
+log('- Created CLI attack report')
+log('- Added test fixtures')
+log('- Comprehensive validation performed')
+log('- Handoff documentation ready for AGY')
+
+return {
+  success: true,
+  phases: ['Explore', 'Design', 'Implement', 'Validate', 'Handoff'],
+  components: ['migrations', 'collector', 'parser', 'log_sources', 'cli_report', 'fixtures', 'tests'],
+  handoff: 'docs/P1_SSH_DETECTOR_HANDOFF.md',
+}

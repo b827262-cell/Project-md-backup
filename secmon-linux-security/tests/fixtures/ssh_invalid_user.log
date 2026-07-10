@@ -1,0 +1,10 @@
+2026-07-10 09:20:15 sshd[2345]: Invalid user hacker from 203.0.113.50 port 55555 ssh2
+2026-07-10 09:20:17 sshd[2345]: Invalid user attacker from 203.0.113.51 port 22 ssh2
+2026-07-10 09:20:19 sshd[2345]: Invalid user bot from 203.0.113.52 port 33333 ssh2
+2026-07-10 09:20:21 sshd[2345]: Invalid user scanner from 198.51.100.10 port 44444 ssh2
+2026-07-10 09:20:23 sshd[2345]: Invalid user malware from 198.51.100.11 port 22 ssh2
+2026-07-10 09:20:25 sshd[2345]: Invalid user exploit from 2001:db8:85a3::8a2e:370:7334 port 22 ssh2
+2026-07-10 09:20:27 sshd[2345]: Invalid user trojan from 2001:db8:85a3::8a2e:370:7334 port 22 ssh2
+2026-07-10 09:20:29 sshd[2345]: Invalid user virus from 172.17.0.100 port 54321 ssh2
+2026-07-10 09:20:31 sshd[2345]: Invalid user worm from 172.17.0.101 port 22 ssh2
+2026-07-10 09:20:33 sshd[2345]: Invalid user rootkit from 192.168.100.50 port 6666 ssh2

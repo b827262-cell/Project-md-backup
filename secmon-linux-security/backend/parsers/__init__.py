@@ -1,1 +1,5 @@
-"""Log parser package placeholder for P1/P2."""
+"""Log parser package for SecMon backend."""
+
+from .ssh_parser import SSHLogEntry, SSHParser
+
+__all__ = ["SSHParser", "SSHLogEntry"]

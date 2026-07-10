@@ -8,52 +8,31 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 CREATE TABLE IF NOT EXISTS log_sources (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    source_type TEXT NOT NULL,
-    source_path TEXT,
-    config_json TEXT,
-    enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-    status TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('unknown', 'healthy', 'warning', 'error', 'disabled')),
-    last_event_at TEXT,
-    last_error TEXT,
-    events_today INTEGER NOT NULL DEFAULT 0,
-    parse_errors_today INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    device_path TEXT,
+    parser_type TEXT,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'error')),
+    last_scanned TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS attack_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_key TEXT NOT NULL UNIQUE,
-    detected_at TEXT NOT NULL,
-    sensor_host TEXT NOT NULL,
-    source_id INTEGER REFERENCES log_sources(id) ON DELETE SET NULL,
-    source_type TEXT NOT NULL,
-    src_ip TEXT NOT NULL,
-    src_port INTEGER CHECK (src_port IS NULL OR src_port BETWEEN 0 AND 65535),
-    dst_ip TEXT,
-    dst_port INTEGER CHECK (dst_port IS NULL OR dst_port BETWEEN 0 AND 65535),
-    protocol TEXT,
-    attack_type TEXT NOT NULL,
-    severity INTEGER NOT NULL DEFAULT 3 CHECK (severity BETWEEN 1 AND 5),
-    signature TEXT,
-    http_method TEXT,
-    request_path TEXT,
+    timestamp TEXT NOT NULL,
+    source_ip TEXT NOT NULL,
+    service TEXT NOT NULL,
     username TEXT,
-    blocked INTEGER NOT NULL DEFAULT 0 CHECK (blocked IN (0, 1)),
-    raw_log TEXT,
-    metadata_json TEXT,
+    failure_reason TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS attackers (
-    src_ip TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip_address TEXT NOT NULL UNIQUE,
+    attack_count INTEGER NOT NULL DEFAULT 0,
     first_seen TEXT NOT NULL,
     last_seen TEXT NOT NULL,
-    total_events INTEGER NOT NULL DEFAULT 0,
-    threat_score INTEGER NOT NULL DEFAULT 0,
-    highest_severity INTEGER NOT NULL DEFAULT 1 CHECK (highest_severity BETWEEN 1 AND 5),
-    last_attack_type TEXT,
-    status TEXT NOT NULL DEFAULT 'observed' CHECK (status IN ('observed', 'high_risk', 'blocked', 'allowlisted')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -126,8 +105,23 @@ CREATE TABLE IF NOT EXISTS system_state (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_events_detected_at ON attack_events(detected_at);
-CREATE INDEX IF NOT EXISTS idx_events_src_ip ON attack_events(src_ip);
-CREATE INDEX IF NOT EXISTS idx_events_type ON attack_events(attack_type);
+-- Indexes for attack_events
+CREATE INDEX IF NOT EXISTS idx_attack_events_event_key ON attack_events(event_key);
+CREATE INDEX IF NOT EXISTS idx_attack_events_timestamp ON attack_events(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_attack_events_source_ip ON attack_events(source_ip);
+CREATE INDEX IF NOT EXISTS idx_attack_events_service ON attack_events(service);
+CREATE INDEX IF NOT EXISTS idx_attack_events_username ON attack_events(username);
+CREATE INDEX IF NOT EXISTS idx_attack_events_timestamp_source_ip ON attack_events(timestamp DESC, source_ip);
+CREATE INDEX IF NOT EXISTS idx_attack_events_dedup ON attack_events(timestamp, source_ip, service, username);
+
+-- Indexes for attackers
+CREATE INDEX IF NOT EXISTS idx_attackers_ip_address ON attackers(ip_address);
+CREATE INDEX IF NOT EXISTS idx_attackers_attack_count ON attackers(attack_count DESC);
+CREATE INDEX IF NOT EXISTS idx_attackers_first_seen ON attackers(first_seen ASC);
+CREATE INDEX IF NOT EXISTS idx_attackers_last_seen ON attackers(last_seen DESC);
+CREATE INDEX IF NOT EXISTS idx_attackers_last_seen_count ON attackers(last_seen DESC, attack_count DESC);
+
+-- Other indexes
 CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status);
+
 INSERT OR IGNORE INTO schema_migrations(version) VALUES ('001_initial');
