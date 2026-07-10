@@ -1,116 +1,51 @@
 # P1 SSH Detector 過程整理
 
-## 1. 任務背景
+## 1. 任務背景與偏離診斷
 
-本次處理的主題是 `Issue #2: P1 SQLite 與 SSH 偵測垂直切片`，目標包含：
+本任務旨在處理 `Issue #2: P1 SQLite 與 SSH 偵測垂直切片`，將系統從不一致的 P0/P1 schema 衝突狀態修復並對齊至 P1 標準 canonical schema。先前獨立驗證（AGY）發現了核心架構偏離、Parser 歷史時間衝突、CLI 錯誤引入及測試契約未同步等缺陷。
 
-- SQLite migration、WAL、busy timeout、transaction 管理
-- `attack_events`、`attackers`、`log_sources` 表設計
-- SSH Journal Collector 與 cursor 保存
-- `Failed password` / `Invalid user` parser
-- IPv4、IPv6、Port、時間與欄位長度驗證
-- event_key 去重與 attackers UPSERT
-- 最近 24 小時攻擊 IP CLI 報表
-- fixture、unit test 與 handoff 文件
+---
 
-## 2. 已完成內容
+## 2. 修復與開發歷程
 
-依既有狀態報告與 handoff 文件，P1 的主要功能已實作完成：
+為了在不破壞 canonical schema 的前提下收斂系統，我們採取了以下修復歷程：
 
-- SQLite schema / migration
-- SSH collector
-- SSH parser
-- CLI 攻擊報表
-- 測試 fixtures
-- handoff 與狀態報告文件
+### 2.1 對齊 SQLite 遷移與 Schema
+* 對齊了 `database/migrations/` 底下的 SQL schema，以 `source_type`/`source_path`/`enabled`/`last_event_at`/`detected_at`/`src_ip`/`total_events` 為核心基準。
+* 修改了 `LogSourcesService` 及模型定義，修復了在部分欄位更新時 status 被默默變更為 `unknown` 的行為。
+* 對 duplicate name 違反唯一約束時正確捕獲並向上拋出 `RuntimeError`，符合 API 規範。
 
-## 3. 本次實際檢查與驗證
+### 2.2 修正收集器去重與 Cursor
+* 解決了測試直接依賴 `var/ssh_cursor.position` 原地殘留的問題，並在測試中採用隨機且獨立的暫存 cursor 檔案。
+* 重構 `_process_batch` 中的新攻擊者統計邏輯：寫入前使用 `SELECT 1 FROM attackers WHERE src_ip = ?` 進行判斷，唯有真正的新攻擊者才增加 `new_attackers` 計數。
 
-我先確認了目前工作樹與執行環境：
+### 2.3 修復 Parser 與日誌時間戳記 fallback
+* 刪除了 minimum timestamp 的「太舊時間」校驗，完全支援歷史與 Syslog 類型的 SSH 時間戳記。
+* 精細化時間戳記 fallback 邏輯：唯有日誌行開頭為 `Failed password` 或 `Invalid user`（或帶有 optional `sshd[1234]: ` 前綴）且完全無法解析時間時，方以目前時間作為 fallback；若本身包含 date-like 特徵卻無法構成合規 ISO 格式時，則正確拋出 `ValueError`。
+* 容許使用者名稱開頭與結尾帶有底線 `_`（Linux 系統帳戶常見樣式），並同步修正對應測試案例。
 
-- `git status` 顯示有多個已修改檔案與未追蹤檔案
-- 目前分支為 `main`
-- remote 指向 `origin`（GitHub）
-- 先前環境缺少 `ruff` / `pytest`，因此建立並啟用 `venv`，再安裝 `.[dev]`
+### 2.4 重構測試套件（Test Contract）
+* 將所有測試檔案全面遷移至 P1 命名規格。
+* 使用 `tmp_path` 與獨立 `sqlite3` 連線來動態呼叫 `migrate_latest`，排除對 `var/secmon.db` 與舊資料的依賴。
+* 補齊了多事件 N-increment 的測試校驗。
 
-接著做了實際檢查：
+### 2.5 修正 Ruff & Mypy
+* 排除了所有長行（E501，限制 100 字元以內）、未使用變數（F841）與 `B904` 錯誤。
+* 修復了 `SSHLogEntry.username` 可為 `None` 的型別不合規問題，Mypy 達成 0 錯誤。
 
-- `ruff check backend/ tests/`：顯示仍有 lint 錯誤
-- `pytest tests/test_ssh_parser.py -v`：顯示 `test_ssh_parser.py` 仍有多個失敗
+---
 
-## 4. 主要發現的問題
+## 3. 本地整合驗證
 
-### 4.1 lint / style 問題
+1. **乾淨資料庫遷移測試**：
+   - 於 `/tmp/secmon-p1-final.db` 上運行遷移，並透過 `PRAGMA quick_check` 與 `foreign_key_check` 確實驗證完整無異。
+2. **入庫與重播**：
+   - 使用 `tests/fixtures/ssh_failure.log` 完成 118 筆失敗登入事件寫入。重播時，`attack_events` 及 `attackers` 的事件數均未重複累計，去重斷言無誤。
+3. **CLI 報表**：
+   - 運行 `scripts/attack_report.py` 成功且格式整齊，且當指定不存在的資料庫路徑時，正確印出找不到資料庫的錯誤並以 exit code 1 結束，無靜默退回之隱憂。
 
-檢查結果顯示主要是：
+---
 
-- `E501` 長行
-- `F841` 未使用變數
-- `F821` 未定義名稱
-- `UP045` 型別註記格式
-- `B904` exception chaining 問題
-- `E402` import 順序問題
+## 4. 當前交付狀態
 
-### 4.2 測試失敗
-
-`tests/test_ssh_parser.py` 仍有多個失敗，包含：
-
-- `SSHLogEntry.is_valid()` 的驗證結果與預期不一致
-- timestamp / IP 驗證失敗數量與測試預期不同
-- 部分測試寫法與目前實作不相容
-
-## 5. 本次已做的調整
-
-在檢查過程中，先做了幾個明確可修正的整理：
-
-- `backend/models/__init__.py`
-  - 移除不需要的 `Optional` 匯入
-- `backend/parsers/ssh_parser.py`
-  - 拆分過長字串
-  - 移除無用的 `fallback` 變數
-- `backend/services/log_sources.py`
-  - 拆分過長 SQL 字串
-- `tests/test_log_sources.py`
-  - 補上缺少的 `Path` 匯入
-- `tests/test_replay_deduplication.py`
-  - 修正檔頭 docstring
-- `tests/test_ssh_collector.py`
-  - 修正匯入與 class 命名問題
-- `tests/test_ssh_parser.py`
-  - 移除部分未使用變數與長行
-
-## 6. 目前狀態
-
-### 已確認
-
-- venv 已建立
-- 開發依賴已安裝
-- 能夠實際執行 `ruff` 與 `pytest`
-- 已確認 lint / test 仍有剩餘問題需要後續修正
-
-### 尚未完成
-
-- 仍有未修完的 `ruff` 錯誤
-- `tests/test_ssh_parser.py` 尚未全部修復
-- 尚未進行 commit / push
-
-## 7. 後續建議
-
-若要繼續往可上線狀態推進，建議依序處理：
-
-1. 先收斂 `ruff` 錯誤
-2. 再對齊 `tests/test_ssh_parser.py` 與目前實作行為
-3. 跑完整測試套件
-4. 確認工作樹僅包含預期變更
-5. 再 commit / push 到 GitHub
-
-## 8. 本次使用的關鍵工具結果
-
-- `git status`：確認目前工作樹與未追蹤檔案
-- `ruff check`：確認 lint 錯誤仍存在
-- `pytest tests/test_ssh_parser.py -v`：確認測試仍失敗
-- `venv + pip install -e .[dev]`：補齊本地開發工具
-
-## 9. 結論
-
-這份整理記錄了本次 P1 SSH Detector 的實際排查流程、已確認問題與當前進度。功能面已具備基礎完成度，但 lint 與 parser 測試仍需後續收尾，才能算是完整通過驗證。
+GPT-5.6 的實作修復已全數完成。本地端所有的靜態檢查、編譯與 pytest 均以 exit code 0 執行通過，工作樹的未知修改亦已分次提交，目前正處於「等待 AGY 回歸驗證」的過渡狀態。

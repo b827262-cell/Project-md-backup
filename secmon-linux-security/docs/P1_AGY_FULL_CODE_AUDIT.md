@@ -9,7 +9,7 @@
 
 ## 1. Identity & Environment
 
-- **Phase / Issue:** P1 — SQLite and SSH Vertical Slice / `Project-md-backup#3`
+- **Phase / Issue:** P1 — SQLite and SSH Vertical Slice / `Project-md-backup#2`
 - **Target Repository:** `/home/b822726/project/get-rg/secmon-linux-security`
 - **Tested HEAD:** `0748abb956dceac1adfe2bd60cd4f54bb7827832` (main)
 - **Environment Details:**
@@ -83,12 +83,12 @@ graph TD
 | **DEF-01** | **Blocker** | Database / Migration | Workspace default database [secmon.db](file:///home/b822726/project/get-rg/secmon-linux-security/var/secmon.db) schema is out of sync with migration scripts. | Compare `sqlite3 var/secmon.db ".schema log_sources"` with migration sql. | GPT-5.6 |
 | **DEF-02** | **Blocker** | Collector | [ssh_collector.py](file:///home/b822726/project/get-rg/secmon-linux-security/backend/collectors/ssh_collector.py#L61) and [database.py](file:///home/b822726/project/get-rg/secmon-linux-security/backend/database.py#L37) use column names `source_type`/`source_path`/`enabled` that don't exist in migrated DB. | Run `python database/migrate.py` on clean DB, then run collector. | GPT-5.6 |
 | **DEF-03** | **Blocker** | Service | [log_sources.py](file:///home/b822726/project/get-rg/secmon-linux-security/backend/services/log_sources.py#L167) maps DB columns incorrectly to `LogSource` model and maps `None` to required Pydantic strings. | Run `pytest tests/test_log_sources.py`. | GPT-5.6 |
-| **DEF-04** | **Critical** | Parser | [ssh_parser.py](file:///home/b822726/project/get-rg/secmon-linux-security/backend/parsers/ssh_parser.py#L82) rejects timestamps older than today, breaking static test cases from 2024. | Run `pytest tests/test_ssh_parser.py`. | GPT-5.6 |
-| **DEF-05** | **Critical** | CLI | [attack_report.py](file:///home/b822726/project/get-rg/secmon-linux-security/scripts/attack_report.py) queries non-existent column `timestamp` on default DB and has incorrect settings import. | Run `.venv/bin/python scripts/attack_report.py`. | GPT-5.6 |
-| **DEF-06** | **Major** | Unit Tests | [test_ssh_parser.py](file:///home/b822726/project/get-rg/secmon-linux-security/tests/test_ssh_parser.py) has contradictory assertions for timestamps (expecting 1-day old to fail but 365-day old to pass). | Check lines 81-97 vs 704-716 in `tests/test_ssh_parser.py`. | GPT-5.6 |
-| **DEF-07** | **Major** | Unit Tests | [test_replay_deduplication.py](file:///home/b822726/project/get-rg/secmon-linux-security/tests/test_replay_deduplication.py#L90) imports `migrate_latest` which does not exist in [migrate.py](file:///home/b822726/project/get-rg/secmon-linux-security/database/migrate.py). | Run `pytest tests/test_replay_deduplication.py`. | GPT-5.6 |
-| **DEF-08** | **Major** | Unit Tests | [test_replay_deduplication.py](file:///home/b822726/project/get-rg/secmon-linux-security/tests/test_replay_deduplication.py#L65) loops and asserts `new_events == 0` for first (initial) run and inherits cursor offsets. | Run `pytest tests/test_replay_deduplication.py`. | GPT-5.6 |
-| **DEF-09** | **Major** | CI / Quality | Ruff and Mypy static checks fail with 30 lint issues (including duplicate test classes) and 2 type errors. | Run `ruff check backend tests scripts` and `mypy backend`. | GPT-5.6 |
+| **DEF-04** | **High** | Parser | SSH parser timestamp validation needs historical-log and future-skew coverage. | Run `pytest tests/test_ssh_parser.py`. | GPT-5.6 |
+| **DEF-05** | **High** | CLI | CLI schema/import contract requires repair. | Run `.venv/bin/python scripts/attack_report.py`. | GPT-5.6 |
+| **DEF-06** | **Medium** | Unit Tests | Timestamp assertions are contradictory. | Check `tests/test_ssh_parser.py`. | GPT-5.6 |
+| **DEF-07** | **Medium** | Unit Tests | Replay tests import a migration API that does not exist. | Run `pytest tests/test_replay_deduplication.py`. | GPT-5.6 |
+| **DEF-08** | **Medium** | Unit Tests | Replay tests have incorrect first-run expectations and shared cursor state. | Run `pytest tests/test_replay_deduplication.py`. | GPT-5.6 |
+| **DEF-09** | **Medium** | CI / Quality | Local lint/type commands require dependency setup and verification. | Run `ruff check backend tests scripts` and `mypy backend`. | GPT-5.6 |
 
 ---
 
@@ -109,7 +109,7 @@ The repository configuration `.github/workflows/ci.yml` is configured to run sta
 - **Mypy Typechecking:** FAIL (2 errors: list append type mismatches).
 - **Database Migration / Tests:** FAIL (Migration failures when running collector, unit test failures, import errors).
 
-Thus, any push to main or pull request triggers a **failed CI build**.
+No GitHub status for audit commit `09721f7` was available; only local CI-equivalent command results may be asserted.
 
 ---
 
