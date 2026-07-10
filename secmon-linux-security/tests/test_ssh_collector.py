@@ -1,33 +1,54 @@
 """Tests for SSH collector module."""
 
-from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-# Import modules directly from local paths
+import pytest
+
 from backend.collectors.ssh_collector import SSHCollector
+from backend.parsers.ssh_parser import SSHLogEntry, SSHParser
 
 
-# Mock SSHLogEntry from ssh_collector
-@dataclass
-class SSHLogEntry:
-    """Represents a parsed SSH log entry."""
-    timestamp: str
-    source_ip: str
-    service: str
-    failure_reason: str
-    username: Optional[str] = None
-
-    @property
-    def event_key(self) -> str:
-        """Generate unique event key for deduplication."""
-        return f"{self.timestamp}|{self.source_ip}|{self.service}|{self.username or ''}"
-
-from backend.parsers.ssh_parser import SSHParser
+@pytest.fixture
+def mock_db_path(tmp_path):
+    """Create a temporary migrated database for testing."""
+    db_path = tmp_path / "test.db"
+    migrations_dir = Path(__file__).parent.parent / "database" / "migrations"
+    from database.migrate import migrate
+    migrate(db_path, migrations_dir)
+    return db_path
 
 
-class TestSSHParser:
-    """Test SSH log parser."""
+class TestSSHLogEntry:
+    """Test SSH log entry dataclass."""
+
+    def test_event_key_with_username(self):
+        """Test event key generation with username."""
+        entry = SSHLogEntry(
+            timestamp="2024-01-15 10:30:45",
+            source_ip="192.168.1.100",
+            service="ssh",
+            username="testuser",
+            failure_reason="Failed password"
+        )
+        assert "testuser" in entry.event_key
+
+    def test_event_key_without_username(self):
+        """Test event key generation without username."""
+        entry = SSHLogEntry(
+            timestamp="2024-01-15 10:30:45",
+            source_ip="192.168.1.100",
+            service="ssh",
+            username=None,
+            failure_reason="Failed password"
+        )
+        # Username should be empty string in event key
+        assert entry.event_key == "2024-01-15 10:30:45|192.168.1.100|ssh|"
+
+
+class TestSSHCollector:
+    """Test SSH collector functionality."""
 
     def test_parse_failed_password(self):
         """Test parsing 'Failed password' log lines."""
@@ -78,62 +99,42 @@ class TestSSHParser:
         assert "192.168.1.200" in event_key
         assert "ssh" in event_key
 
-
-class TestSSHLogEntry:
-    """Test SSH log entry dataclass."""
-
-    def test_event_key_with_username(self):
-        """Test event key generation with username."""
-        entry = SSHLogEntry(
-            timestamp="2024-01-15 10:30:45",
-            source_ip="192.168.1.100",
-            service="ssh",
-            username="testuser",
-            failure_reason="Failed password"
-        )
-        assert "testuser" in entry.event_key
-
-    def test_event_key_without_username(self):
-        """Test event key generation without username."""
-        entry = SSHLogEntry(
-            timestamp="2024-01-15 10:30:45",
-            source_ip="192.168.1.100",
-            service="ssh",
-            username=None,
-            failure_reason="Failed password"
-        )
-        # Username should be empty string in event key
-        assert entry.event_key == "2024-01-15 10:30:45|192.168.1.100|ssh|"
-
-
-class TestSSHCollector:
-    """Test SSH collector functionality."""
-
-    def test_get_settings(self):
+    def test_get_settings(self, mock_db_path):
         """Test that collector initializes with settings."""
         with patch("backend.collectors.ssh_collector.get_settings") as mock_settings:
-            mock_settings.return_value = Mock(environment="development")
+            mock_settings.return_value = Mock(
+                environment="development", database_path=str(mock_db_path)
+            )
             collector = SSHCollector()
             assert collector.settings is not None
 
-    def test_cursor_position_initialization(self):
+    def test_cursor_position_initialization(self, mock_db_path, tmp_path):
         """Test that cursor position initializes to None."""
         with patch("backend.collectors.ssh_collector.get_settings") as mock_settings:
-            mock_settings.return_value = Mock(environment="development")
+            mock_settings.return_value = Mock(
+                environment="development", database_path=str(mock_db_path)
+            )
             collector = SSHCollector()
-            assert collector.cursor_position is None
+            # Set cursor position file to tmp path to avoid polluting workspace
+            collector.cursor_position_file = tmp_path / "ssh_cursor.position"
+            # It loads cursor position dynamically
+            assert collector._get_last_cursor_position() == 0
 
-    def test_batch_size_default(self):
+    def test_batch_size_default(self, mock_db_path):
         """Test that batch size is set to default value."""
         with patch("backend.collectors.ssh_collector.get_settings") as mock_settings:
-            mock_settings.return_value = Mock(environment="development")
+            mock_settings.return_value = Mock(
+                environment="development", database_path=str(mock_db_path)
+            )
             collector = SSHCollector()
-            assert collector.batch_size == collector.DEFAULT_BATCH_SIZE
+            assert collector.batch_size == 100  # Default batch size
 
-    def test_parse_ssh_line_pattern_match(self):
+    def test_parse_ssh_line_pattern_match(self, mock_db_path):
         """Test that SSH collector correctly parses SSH lines."""
         with patch("backend.collectors.ssh_collector.get_settings") as mock_settings:
-            mock_settings.return_value = Mock(environment="development", database_path=Mock())
+            mock_settings.return_value = Mock(
+                environment="development", database_path=str(mock_db_path)
+            )
 
             collector = SSHCollector()
             line = "sshd[1234]: Failed password for root from 192.168.1.100 port 22 ssh2"

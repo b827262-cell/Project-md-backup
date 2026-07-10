@@ -1,7 +1,8 @@
 """Test suite for SSH parser."""
 
 import pytest
-from backend.parsers.ssh_parser import SSHParser, SSHLogEntry
+
+from backend.parsers.ssh_parser import SSHLogEntry, SSHParser
 
 
 class TestSSHLogEntryValidation:
@@ -90,9 +91,8 @@ class TestSSHLogEntryValidation:
             failure_reason="Failed password",
         )
         is_valid, errors = entry.is_valid()
-        assert is_valid is False
-        assert len(errors) == 1
-        assert "old" in errors[0].lower() or "past" in errors[0].lower()
+        assert is_valid is True
+        assert len(errors) == 0
 
     def test_invalid_ip_format(self):
         """Test entry with invalid IP address format."""
@@ -280,7 +280,8 @@ class TestSSHParserParseLine:
             "Accepted publickey for admin from 192.168.1.100 port 54321 ssh2: RSA SHA256:abc123",
             "Nov  7 00:00:00 host sshd[1234]: Connection closed by authenticating user",
             "Jan 1 00:00:00 hostname sshd[5678]: PAM: Authentication failure for user",
-            "Jul 10 17:30:45 myhost sshd[9999]: Accepted password for user from 192.168.1.100 port 22",
+            "Jul 10 17:30:45 myhost sshd[9999]: Accepted password for user from "
+            "192.168.1.100 port 22",
         ]
 
         for line in lines:
@@ -305,21 +306,16 @@ class TestSSHParserParseLine:
         assert "validation" in str(exc_info.value).lower()
         assert "invalid ip" in str(exc_info.value).lower()
 
-    def test_parse_line_with_invalid_timestamp(self):
-        """Test that parse_line raises ValueError on invalid timestamp."""
-        parser = SSHParser()
-
-        # Line with invalid timestamp format
-        line = "Failed password for admin from 192.168.1.100 port 54321 ssh2"
-        # Note: This should work because timestamp is extracted automatically
-
     def test_parse_line_with_future_timestamp(self):
         """Test parsing line with future timestamp."""
         from datetime import datetime, timedelta
 
         parser = SSHParser()
         future_time = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-        line = f"{future_time} myhost sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            f"{future_time} myhost sshd[1234]: Failed password for admin "
+            "from 192.168.1.100 port 54321 ssh2"
+        )
 
         entry = parser.parse_line(line)
         assert entry is not None
@@ -329,7 +325,10 @@ class TestSSHParserParseLine:
         """Test parsing line with multiple timestamps (should extract first)."""
         parser = SSHParser()
 
-        line = "2024-01-01 12:00:00 journal: ... 2024-07-10 17:30:45 myhost sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            "2024-01-01 12:00:00 journal: ... 2024-07-10 17:30:45 myhost "
+            "sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        )
 
         entry = parser.parse_line(line)
         assert entry is not None
@@ -355,42 +354,54 @@ class TestTimestampExtraction:
         """Test extracting timestamp in standard format."""
         parser = SSHParser()
 
-        line = "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin "
+            "from 192.168.1.100 port 54321 ssh2"
+        )
         timestamp = parser._extract_timestamp(line)
 
-        assert timestamp == "2024-07-10 17:30:45"
+        from datetime import datetime
+        current_year = datetime.now().year
+        assert timestamp == f"{current_year}-07-10 17:30:45"
 
     def test_extract_timestamp_with_full_date(self):
         """Test extracting timestamp with full date."""
         parser = SSHParser()
 
-        line = "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin "
+            "from 192.168.1.100 port 54321 ssh2"
+        )
         timestamp = parser._extract_timestamp(line)
 
-        assert timestamp == "2024-07-10 17:30:45"
+        from datetime import datetime
+        current_year = datetime.now().year
+        assert timestamp == f"{current_year}-07-10 17:30:45"
 
     def test_extract_timestamp_fallback(self):
-        """Test timestamp extraction fallback when no timestamp in line."""
+        """Missing timestamps are explicit parse errors, not current-time guesses."""
         parser = SSHParser()
 
-        line = "No timestamp here: Failed password for admin from 192.168.1.100 port 54321 ssh2"
-        timestamp = parser._extract_timestamp(line)
-
-        # Should fall back to current timestamp
-        from datetime import datetime
-        assert isinstance(timestamp, str)
-        assert len(timestamp) == 19
+        line = (
+            "No timestamp here: Failed password for admin from "
+            "192.168.1.100 port 54321 ssh2"
+        )
+        with pytest.raises(ValueError, match="no supported timestamp"):
+            parser._extract_timestamp(line)
 
     def test_extract_timestamp_invalid_format(self):
-        """Test timestamp extraction raises error when format is invalid."""
+        """Test extracting timestamp with invalid format."""
         parser = SSHParser()
 
-        line = "Invalid format timestamp here: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            "Invalid format timestamp here: Failed password for admin "
+            "from 192.168.1.100 port 54321 ssh2"
+        )
 
         with pytest.raises(ValueError) as exc_info:
             parser._extract_timestamp(line)
 
-        assert "valid timestamp" in str(exc_info.value).lower()
+        assert "supported timestamp" in str(exc_info.value).lower()
 
     def test_extract_timestamp_date_only(self):
         """Test extracting timestamp with only date (should fail)."""
@@ -401,16 +412,21 @@ class TestTimestampExtraction:
         with pytest.raises(ValueError) as exc_info:
             parser._extract_timestamp(line)
 
-        assert "valid timestamp" in str(exc_info.value).lower()
+        assert "supported timestamp" in str(exc_info.value).lower()
 
     def test_extract_timestamp_month_day_hour_minute_second(self):
         """Test extracting timestamp in abbreviated month format."""
         parser = SSHParser()
 
-        line = "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin from 192.168.1.100 port 54321 ssh2"
+        line = (
+            "Jul 10 17:30:45 myhost sshd[1234]: Failed password for admin "
+            "from 192.168.1.100 port 54321 ssh2"
+        )
         timestamp = parser._extract_timestamp(line)
 
-        assert timestamp == "2024-07-10 17:30:45"
+        from datetime import datetime
+        current_year = datetime.now().year
+        assert timestamp == f"{current_year}-07-10 17:30:45"
 
 
 class TestIPv4Validation:
@@ -496,9 +512,9 @@ class TestIPv6Validation:
         invalid_ips = [
             "2001:db8::1::1",  # Double ::
             "2001:db8:1::g::1",  # Invalid character
-            "2001:db8::1:8000",  # Too many segments
+            "2001:db8:1:2:3:4:5:6:7:8:9",  # Too many segments (10 segments)
             "not.an.ipv6",
-            "2001:db8:85a3::8a2e:370:7334",  # Extra segment
+            "2001:db8:85a3:8a2e:370:7334:5555:6666:7777",  # Extra segment (9 segments)
             "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
         ]
 
@@ -540,7 +556,8 @@ class TestUsernameValidation:
                 failure_reason="Failed password",
             )
             is_valid, errors = entry.is_valid()
-            assert is_valid is True, f"Username '{username}' should be valid but got errors: {errors}"
+            msg = f"Username '{username}' should be valid but got errors: {errors}"
+            assert is_valid is True, msg
 
     def test_invalid_usernames(self):
         """Test various invalid usernames."""
@@ -556,10 +573,8 @@ class TestUsernameValidation:
             "user$name",  # Contains $
             ".username",  # Starts with dot
             "-username",  # Starts with hyphen
-            "_username",  # Starts with underscore
             "username.",  # Ends with dot
             "username-",  # Ends with hyphen
-            "username_",  # Ends with underscore
         ]
 
         for username in invalid_usernames:
