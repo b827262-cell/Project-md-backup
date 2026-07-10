@@ -66,9 +66,27 @@ flowchart LR
 
 ## 文件目錄
 
+### 系統設計
+
 - [系統架構與前後台功能設計](docs/ARCHITECTURE_AND_UI.md)
 - [SQLite 資料庫設計](docs/DATABASE_DESIGN.md)
 - [MVP 實作與部署計畫](docs/MVP_IMPLEMENTATION.md)
+
+### 專案排程與 AI 分工
+
+- [專案規劃與交付排程](docs/PROJECT_PLAN_AND_SCHEDULE.md)
+- [GPT-5.6 執行任務書](docs/AGENT_ASSIGNMENT_GPT56.md)
+- [AGY（Gemini 3.5 Flash）執行與驗證任務書](docs/AGENT_ASSIGNMENT_AGY.md)
+- [AI 交接與 Release Gate 規範](docs/AI_HANDOFF_AND_RELEASE_GATES.md)
+
+## AI 責任分配
+
+| AI 角色 | 主要責任 |
+|---|---|
+| GPT-5.6 | 架構、SQLite、Collector、Parser、Threat Engine、API、nftables、systemd 與缺陷修復 |
+| AGY（Gemini 3.5 Flash） | PM、前台整合、Playwright、資料核對、安全驗證與 Release Gate |
+
+實作者不得自行完成最終驗收。GPT-5.6 完成實作與自測後，必須交由 AGY 依指定 HEAD 執行獨立驗證；正式部署與啟用自動封鎖仍由人類專案負責人決定。
 
 ## 建議目錄結構
 
