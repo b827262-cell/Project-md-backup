@@ -37,6 +37,11 @@ def migrate(database: Path, migrations_dir: Path) -> None:
                 )
 
 
+def migrate_latest(database: Path, migrations_dir: Path) -> None:
+    """Compatibility API for tests and callers that apply all migrations."""
+    migrate(database, migrations_dir)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--database", type=Path, default=Path("./var/secmon.db"))
