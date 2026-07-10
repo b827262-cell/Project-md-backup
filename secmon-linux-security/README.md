@@ -2,7 +2,21 @@
 
 SecMon 是一套以 Linux 為部署環境的輕量級資安偵測與攻擊 IP 管理平台。第一階段採用 SQLite，整合 SSH Journal、Nginx Access Log、Suricata IDS、CrowdSec 與 nftables，提供事件蒐集、威脅評分、即時告警、攻擊 IP 排名、白名單及封鎖管理。
 
-> 目前狀態：系統設計與 MVP 規格階段，尚未提供正式環境可直接部署的完整程式碼。
+> 目前狀態：P0 專案骨架已建立；Collector、API、前台與 nftables 尚待後續 Phase 實作。
+
+## P0 開發命令
+
+從 `secmon-linux-security/` 執行：
+
+```bash
+python -m pip install -e '.[dev]'
+make check
+make migrate
+```
+
+前端命令位於 `frontend/`，可使用 `npm install` 後執行 `npm run lint`、
+`npm run typecheck`、`npm run test` 與 `npm run build`。正式秘密應由環境注入；
+請以 `.env.example` 作為欄位參考，不要提交 `.env`。
 
 ## 核心目標
 

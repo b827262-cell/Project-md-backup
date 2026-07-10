@@ -4,3 +4,21 @@
 
 logs/
 .daily-md-sync-date
+
+# SecMon local runtime and dependency artifacts
+secmon-linux-security/.env
+secmon-linux-security/.venv/
+secmon-linux-security/var/
+secmon-linux-security/**/__pycache__/
+secmon-linux-security/**/*.py[cod]
+secmon-linux-security/**/*.so
+secmon-linux-security/*.egg-info/
+secmon-linux-security/.eggs/
+secmon-linux-security/dist/
+secmon-linux-security/build/
+secmon-linux-security/.mypy_cache/
+secmon-linux-security/.ruff_cache/
+secmon-linux-security/.pytest_cache/
+secmon-linux-security/frontend/node_modules/
+secmon-linux-security/frontend/dist/
+secmon-linux-security/frontend/.cache/

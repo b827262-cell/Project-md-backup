@@ -1,0 +1,23 @@
+[Unit]
+Description=SecMon Log Collector Service
+After=network.target
+
+[Service]
+Type=simple
+User=secmon
+Group=secmon
+WorkingDirectory=/opt/secmon
+EnvironmentFile=/etc/secmon/secmon.env
+ExecStart=/opt/secmon/.venv/bin/python -m backend.collectors.main
+Restart=on-failure
+RestartSec=5s
+StartLimitIntervalSec=300
+StartLimitBurst=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/secmon /var/log/secmon
+
+[Install]
+WantedBy=multi-user.target
