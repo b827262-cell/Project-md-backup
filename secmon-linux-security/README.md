@@ -74,6 +74,7 @@ flowchart LR
 
 ### 專案排程與 AI 分工
 
+- [Phase Issue 與 AI 分派索引](docs/ISSUE_AND_ASSIGNMENT_INDEX.md)
 - [專案規劃與交付排程](docs/PROJECT_PLAN_AND_SCHEDULE.md)
 - [GPT-5.6 執行任務書](docs/AGENT_ASSIGNMENT_GPT56.md)
 - [AGY（Gemini 3.5 Flash）執行與驗證任務書](docs/AGENT_ASSIGNMENT_AGY.md)
