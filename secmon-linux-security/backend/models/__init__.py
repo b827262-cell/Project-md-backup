@@ -1,64 +1,86 @@
-"""Database models and types for SecMon backend."""
-
-from datetime import datetime
+"""P1 canonical database models."""
 
 from pydantic import BaseModel
 
 
 class AttackEvent(BaseModel):
-    """Attack event from SSH logs."""
-
-    event_key: str  # Changed to str for compatibility with event_key generation
-    timestamp: str
-    source_ip: str
-    service: str
+    event_key: str
+    detected_at: str
+    sensor_host: str = "localhost"
+    source_id: int | None = None
+    source_type: str = "file"
+    src_ip: str
+    src_port: int | None = None
+    dst_ip: str | None = None
+    dst_port: int | None = 22
+    protocol: str = "tcp"
+    attack_type: str
+    severity: int = 3
+    signature: str | None = None
     username: str | None = None
-    failure_reason: str
+    raw_log: str | None = None
+    metadata_json: str | None = None
     created_at: str
+
+    @property
+    def timestamp(self) -> str:
+        return self.detected_at
+
+    @property
+    def source_ip(self) -> str:
+        return self.src_ip
+
+    @property
+    def service(self) -> str:
+        return "ssh"
 
 
 class Attacker(BaseModel):
-    """Attacker information from SSH logs."""
-
-    ip_address: str
-    attack_count: int
+    src_ip: str
     first_seen: str
     last_seen: str
-    created_at: str
+    total_events: int
+    ssh_failures: int
+    threat_score: int
+    highest_severity: int
+    last_attack_type: str | None
+    status: str
     updated_at: str
 
 
 class LogSource(BaseModel):
-    """Log source configuration."""
-
     id: int
     name: str
     source_type: str
     source_path: str | None = None
     config_json: str | None = None
-    enabled: int
+    enabled: int = 1
     status: str
     last_event_at: str | None = None
     last_error: str | None = None
-    events_today: int
-    parse_errors_today: int
+    events_today: int = 0
+    parse_errors_today: int = 0
     created_at: str
     updated_at: str
 
+    @property
+    def device_path(self) -> str | None:
+        return self.source_path
+
+    @property
+    def parser_type(self) -> str:
+        return self.source_type
+
 
 class LogSourcesCreate(BaseModel):
-    """Log source creation request."""
-
     name: str
     device_path: str
     parser_type: str
-    status: str = "active"
+    status: str = "unknown"
 
 
 class LogSourcesUpdate(BaseModel):
-    """Log source update request."""
-
-    name: Optional[str] = None
-    device_path: Optional[str] = None
-    parser_type: Optional[str] = None
-    status: Optional[str] = None
+    name: str | None = None
+    device_path: str | None = None
+    parser_type: str | None = None
+    status: str | None = None

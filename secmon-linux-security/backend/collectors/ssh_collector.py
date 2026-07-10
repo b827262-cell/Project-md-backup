@@ -9,12 +9,10 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterator
 
 from backend.config import get_settings
-from backend.models import AttackEvent, Attacker
-from backend.parsers.ssh_parser import SSHParser
-
+from backend.models import AttackEvent
+from backend.parsers.ssh_parser import SSHLogEntry, SSHParser
 
 # Configure module-level logging
 logger = logging.getLogger(__name__)
@@ -40,7 +38,13 @@ class SSHCollector:
         self.database_path = database_path or self.settings.database_path
         self.parser = SSHParser()
         self.cursor_position_file = Path("./var/ssh_cursor.position")
+        self.batch_size = 100
+        self._source_id: int | None = None
         self._initialize_log_source()
+
+    def parse_ssh_line(self, line: str) -> SSHLogEntry | None:
+        """Parse SSH line using internal parser (compatibility method)."""
+        return self.parser.parse_line(line)
 
     def _initialize_log_source(self) -> None:
         """Ensure SSH log source exists in database."""
@@ -67,8 +71,12 @@ class SSHCollector:
                 )
                 conn.commit()
                 logger.info("Created SSH log source with ID: %d", cursor.lastrowid)
+                if cursor.lastrowid is None:
+                    raise RuntimeError("Failed to create SSH log source")
+                self._source_id = cursor.lastrowid
             else:
                 logger.debug("SSH log source already exists with ID: %d", result[0])
+                self._source_id = int(result[0])
 
         except Exception as e:
             logger.error("Failed to initialize log source: %s", e)
@@ -91,7 +99,7 @@ class SSHCollector:
                 logger.debug("Loaded cursor position: %d", position)
                 return position
             return 0
-        except (IOError, ValueError) as e:
+        except (OSError, ValueError) as e:
             logger.warning("Failed to read cursor position: %s, starting from beginning", e)
             return 0
 
@@ -105,8 +113,9 @@ class SSHCollector:
             self.cursor_position_file.parent.mkdir(parents=True, exist_ok=True)
             self.cursor_position_file.write_text(str(position))
             logger.debug("Saved cursor position: %d", position)
-        except IOError as e:
+        except OSError as e:
             logger.error("Failed to save cursor position: %s", e)
+            raise
 
     def _generate_event_key(self, entry: AttackEvent) -> str:
         """Generate unique event key for deduplication.
@@ -125,18 +134,11 @@ class SSHCollector:
         Returns:
             SQL query string.
         """
-        return """
-        INSERT INTO attack_events (event_key, timestamp, source_ip, service, username,
-                                   failure_reason, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(event_key) DO UPDATE SET
-            timestamp = excluded.timestamp,
-            source_ip = excluded.source_ip,
-            service = excluded.service,
-            username = excluded.username,
-            failure_reason = excluded.failure_reason,
-            created_at = excluded.created_at
-        """
+        return """INSERT OR IGNORE INTO attack_events
+            (event_key, detected_at, sensor_host, source_id, source_type, src_ip,
+             src_port, dst_port, protocol, attack_type, severity, signature, username,
+             raw_log, created_at)
+            VALUES (?, ?, 'localhost', ?, 'file', ?, ?, 22, 'tcp', ?, 3, ?, ?, ?, ?)"""
 
     def _get_upsert_attacker_query(self) -> str:
         """Get SQL query for upserting attacker information.
@@ -144,15 +146,16 @@ class SSHCollector:
         Returns:
             SQL query string.
         """
-        return """
-        INSERT INTO attackers (ip_address, attack_count, first_seen, last_seen,
-                               created_at, updated_at)
-        VALUES (?, 1, ?, ?, ?, ?)
-        ON CONFLICT(ip_address) DO UPDATE SET
-            attack_count = attack_count + 1,
-            last_seen = excluded.last_seen,
-            updated_at = excluded.updated_at
-        """
+        return """INSERT INTO attackers
+            (src_ip, first_seen, last_seen, total_events, ssh_failures,
+             threat_score, highest_severity, last_attack_type, status, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'observed', CURRENT_TIMESTAMP)
+            ON CONFLICT(src_ip) DO UPDATE SET
+              last_seen=excluded.last_seen,
+              total_events=attackers.total_events+excluded.total_events,
+              ssh_failures=attackers.ssh_failures+excluded.ssh_failures,
+              highest_severity=MIN(attackers.highest_severity, excluded.highest_severity),
+              last_attack_type=excluded.last_attack_type, updated_at=CURRENT_TIMESTAMP"""
 
     def _parse_log_lines(self, lines: list[str]) -> list[AttackEvent]:
         """Parse multiple log lines into AttackEvent objects.
@@ -168,9 +171,19 @@ class SSHCollector:
             if not line.strip():
                 continue
 
-            entry = self.parser.parse_line(line)
+            try:
+                entry = self.parser.parse_line(line)
+            except ValueError as exc:
+                logger.warning("Skipping malformed SSH line: %s", exc)
+                continue
             if entry:
-                events.append(entry)
+                events.append(AttackEvent(
+                    event_key=entry.event_key, detected_at=entry.timestamp,
+                    src_ip=entry.source_ip,
+                    attack_type=("ssh_invalid_user" if entry.failure_reason == "Invalid user"
+                                 else "ssh_failed_password"),
+                    signature=entry.failure_reason, username=entry.username,
+                    raw_log=line.rstrip("\n"), created_at=datetime.now().isoformat()))
 
         return events
 
@@ -214,45 +227,25 @@ class SSHCollector:
 
             cursor = conn.cursor()
 
-            # Prepare data for upserts
-            events_data = []
-            attackers_data = {}
-
             for event in batch.entries:
-                event_key = self._generate_event_key(event)
+                inserted = cursor.execute(self._get_upsert_events_query(), (
+                    event.event_key, event.detected_at, self._source_id,
+                    event.src_ip, event.src_port, event.attack_type,
+                    event.signature, event.username, event.raw_log, now,
+                )).rowcount
+                if inserted == 1:
+                    new_events += 1
+                    # Check if attacker already exists in DB
+                    attacker_exists = cursor.execute(
+                        "SELECT 1 FROM attackers WHERE src_ip = ?", (event.src_ip,)
+                    ).fetchone()
 
-                # Prepare event data
-                events_data.append((
-                    event_key,
-                    event.timestamp,
-                    event.source_ip,
-                    event.service,
-                    event.username,
-                    event.failure_reason,
-                    now,
-                ))
-
-                # Track attackers
-                if event.source_ip not in attackers_data:
-                    attackers_data[event.source_ip] = {
-                        "first_seen": event.timestamp,
-                        "last_seen": event.timestamp,
-                    }
-
-            # Upsert events
-            cursor.executemany(self._get_upsert_events_query(), events_data)
-            new_events = len(events_data)
-
-            # Upsert attackers
-            for ip, data in attackers_data.items():
-                cursor.execute(self._get_upsert_attacker_query(), (
-                    ip,
-                    data["first_seen"],
-                    data["last_seen"],
-                    now,
-                    now,
-                ))
-            new_attackers = len(attackers_data)
+                    cursor.execute(self._get_upsert_attacker_query(), (
+                        event.src_ip, event.detected_at, event.detected_at,
+                        1, 1, event.severity, event.severity, event.attack_type,
+                    ))
+                    if not attacker_exists:
+                        new_attackers += 1
 
             # Update log source stats
             cursor.execute("""
@@ -315,9 +308,12 @@ class SSHCollector:
         total_new_attackers = 0
 
         try:
-            with open(log_path, 'r', encoding='utf-8', errors='replace') as log_file:
+            with open(log_path, encoding='utf-8', errors='replace') as log_file:
                 # Get initial cursor position
                 initial_position = self._get_last_cursor_position()
+                if initial_position > log_path.stat().st_size:
+                    logger.warning("Cursor exceeds file size; treating file as truncated/rotated")
+                    initial_position = 0
                 log_file.seek(initial_position)
                 current_position = initial_position
 
@@ -336,7 +332,11 @@ class SSHCollector:
                         break
 
                     # Collect and process batch
-                    logger.debug("Processing batch of %d lines at position %d", len(lines), current_position)
+                    logger.debug(
+                        "Processing batch of %d lines at position %d",
+                        len(lines),
+                        current_position,
+                    )
                     batch = self._collect_batch(lines)
                     new_events, new_attackers = self._process_batch(batch)
                     total_new_events += new_events
@@ -355,7 +355,7 @@ class SSHCollector:
                     total_new_events, total_new_attackers
                 )
 
-        except IOError as e:
+        except OSError as e:
             logger.error("Error reading log file: %s", e)
             raise
         except sqlite3.Error as e:
@@ -398,7 +398,7 @@ class SSHCollector:
                 logger.error("Log file does not exist: %s", log_path)
                 return False
 
-            with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+            with open(log_path, encoding='utf-8', errors='replace') as f:
                 # Read and parse first line to test parsing
                 first_line = f.readline()
                 entry = self.parser.parse_line(first_line)

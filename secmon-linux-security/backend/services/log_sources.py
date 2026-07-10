@@ -1,396 +1,121 @@
-"""Log sources management service."""
+"""Log source service using the P1 canonical schema."""
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Any
 
 from backend.database import Database
 from backend.models import LogSource
 
 
 class LogSourcesService:
-    """Service for managing log sources."""
-
-    def __init__(self, database_path: Optional[Path] = None):
-        """Initialize log sources service.
-
-        Args:
-            database_path: Optional custom database path.
-        """
+    def __init__(self, database_path: Path | None = None):
         self.db = Database(database_path)
 
-    def create_log_source(
-        self,
-        name: str,
-        device_path: str,
-        parser_type: str,
-        status: str = "active",
-    ) -> int:
-        """Create a new log source.
+    @staticmethod
+    def _model(row: tuple[Any, ...]) -> LogSource:
+        return LogSource(**dict(zip(
+            ("id", "name", "source_type", "source_path", "config_json", "enabled",
+             "status", "last_event_at", "last_error", "events_today",
+             "parse_errors_today", "created_at", "updated_at"), row, strict=True
+        )))
 
-        Args:
-            name: Log source name (must be unique).
-            device_path: Path to the log file/device.
-            parser_type: Type of parser to use.
-            status: Status of the log source (active/inactive/error).
-
-        Returns:
-            ID of the created log source.
-        """
-        connection = None
+    def create_log_source(self, name: str, device_path: str, parser_type: str,
+                          status: str = "unknown") -> int:
+        import sqlite3
+        status = {"active": "healthy", "inactive": "disabled"}.get(status, status)
         try:
-            connection = self.db.get_connection()
-
-            cursor = connection.execute(
-                """INSERT INTO log_sources
-                   (name, device_path, parser_type, status, last_scanned)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (name, device_path, parser_type, status, None),
-            )
-            connection.commit()
-
-            source_id = cursor.lastrowid
-            if source_id is None:
-                raise RuntimeError("Failed to create log source: lastrowid is None")
-
-            print(f"Created log source '{name}' with ID: {source_id}")
-            return source_id
-
-        except Exception as e:
-            print(f"Error creating log source '{name}': {e}")
-            if connection:
-                connection.rollback()
-            raise
-        finally:
-            if connection:
-                connection.close()
-
-    def get_log_source(self, log_source_id: int) -> Optional[LogSource]:
-        """Get a log source by ID.
-
-        Args:
-            log_source_id: Log source ID.
-
-        Returns:
-            LogSource object or None if not found.
-        """
-        connection = None
-        try:
-            connection = self.db.get_connection()
-            cursor = connection.execute(
-                "SELECT id, name, device_path, parser_type, status, last_scanned, created_at FROM log_sources WHERE id = ?",
-                (log_source_id,),
-            )
-            result = cursor.fetchone()
-
-            if not result:
-                return None
-
-            return LogSource(
-                id=result[0],
-                name=result[1],
-                source_type=result[2],  # device_path is used as source_type
-                source_path=result[3],
-                config_json=None,
-                enabled=1,  # Default enabled
-                status=result[4],
-                last_event_at=None,
-                last_error=None,
-                events_today=0,
-                parse_errors_today=0,
-                created_at=result[5],
-                updated_at=result[5],
-            )
-
-        finally:
-            if connection:
-                connection.close()
-
-    def get_log_source_by_name(self, name: str) -> Optional[LogSource]:
-        """Get a log source by name.
-
-        Args:
-            name: Log source name.
-
-        Returns:
-            LogSource object or None if not found.
-        """
-        connection = None
-        try:
-            connection = self.db.get_connection()
-            cursor = connection.execute(
-                "SELECT id, name, device_path, parser_type, status, last_scanned, created_at FROM log_sources WHERE name = ?",
-                (name,),
-            )
-            result = cursor.fetchone()
-
-            if not result:
-                return None
-
-            return LogSource(
-                id=result[0],
-                name=result[1],
-                source_type=result[2],
-                source_path=result[3],
-                config_json=None,
-                enabled=1,
-                status=result[4],
-                last_event_at=None,
-                last_error=None,
-                events_today=0,
-                parse_errors_today=0,
-                created_at=result[5],
-                updated_at=result[5],
-            )
-
-        finally:
-            if connection:
-                connection.close()
-
-    def get_all_log_sources(self) -> List[LogSource]:
-        """Get all log sources.
-
-        Returns:
-            List of LogSource objects.
-        """
-        connection = None
-        try:
-            connection = self.db.get_connection()
-            cursor = connection.execute(
-                "SELECT id, name, device_path, parser_type, status, last_scanned, created_at FROM log_sources ORDER BY id",
-            )
-            results = cursor.fetchall()
-
-            return [
-                LogSource(
-                    id=row[0],
-                    name=row[1],
-                    source_type=row[2],
-                    source_path=row[3],
-                    config_json=None,
-                    enabled=1,
-                    status=row[4],
-                    last_event_at=None,
-                    last_error=None,
-                    events_today=0,
-                    parse_errors_today=0,
-                    created_at=row[5],
-                    updated_at=row[5],
+            with self.db.get_connection() as conn:
+                cur = conn.execute(
+                    "INSERT INTO log_sources (name, source_type, source_path, status) "
+                    "VALUES (?, ?, ?, ?)",
+                    (name, parser_type, device_path, status),
                 )
-                for row in results
-            ]
+                if cur.lastrowid is None:
+                    raise RuntimeError("Failed to create log source")
+                return cur.lastrowid
+        except sqlite3.IntegrityError as e:
+            raise RuntimeError(f"Failed to create log source: {e}") from e
 
-        finally:
-            if connection:
-                connection.close()
+    def _get(self, clause: str, value: object) -> LogSource | None:
+        columns = (
+            "id, name, source_type, source_path, config_json, enabled, status, "
+            "last_event_at, last_error, events_today, parse_errors_today, created_at, updated_at"
+        )
+        with self.db.get_connection() as conn:
+            row = conn.execute(
+                f"SELECT {columns} FROM log_sources " + clause,
+                (value,),
+            ).fetchone()
+        return self._model(row) if row else None
 
-    def update_log_source(
-        self,
-        log_source_id: int,
-        name: Optional[str] = None,
-        device_path: Optional[str] = None,
-        parser_type: Optional[str] = None,
-        status: Optional[str] = None,
-    ) -> bool:
-        """Update a log source.
+    def get_log_source(self, log_source_id: int) -> LogSource | None:
+        return self._get("WHERE id = ?", log_source_id)
 
-        Args:
-            log_source_id: Log source ID.
-            name: New name (optional).
-            device_path: New device path (optional).
-            parser_type: New parser type (optional).
-            status: New status (optional).
+    def get_log_source_by_name(self, name: str) -> LogSource | None:
+        return self._get("WHERE name = ?", name)
 
-        Returns:
-            True if updated successfully, False otherwise.
-        """
-        connection = None
-        try:
-            connection = self.db.get_connection()
+    def get_all_log_sources(self) -> list[LogSource]:
+        columns = (
+            "id, name, source_type, source_path, config_json, enabled, status, "
+            "last_event_at, last_error, events_today, parse_errors_today, created_at, updated_at"
+        )
+        with self.db.get_connection() as conn:
+            rows = conn.execute(
+                f"SELECT {columns} FROM log_sources ORDER BY id"
+            ).fetchall()
+        return [self._model(row) for row in rows]
 
-            # Build dynamic update query
-            updates = []
-            params = []
+    def update_log_source(self, log_source_id: int, name: str | None = None,
+                          device_path: str | None = None, parser_type: str | None = None,
+                          status: str | None = None) -> bool:
+        fields: dict[str, Any] = {}
+        if name is not None:
+            fields["name"] = name
+        if device_path is not None:
+            fields["source_path"] = device_path
+        if parser_type is not None:
+            fields["source_type"] = parser_type
+        if status is not None:
+            fields["status"] = {"active": "healthy", "inactive": "disabled"}.get(status, status)
 
-            if name is not None:
-                updates.append("name = ?")
-                params.append(name)
-            if device_path is not None:
-                updates.append("device_path = ?")
-                params.append(device_path)
-            if parser_type is not None:
-                updates.append("parser_type = ?")
-                params.append(parser_type)
-            if status is not None:
-                updates.append("status = ?")
-                params.append(status)
-
-            if not updates:
-                return True  # Nothing to update
-
-            params.append(log_source_id)
-            query = f"UPDATE log_sources SET {', '.join(updates)} WHERE id = ?"
-            cursor = connection.execute(query, params)
-            connection.commit()
-
-            print(f"Updated log source ID {log_source_id}")
-            return cursor.rowcount > 0
-
-        except Exception as e:
-            print(f"Error updating log source ID {log_source_id}: {e}")
-            if connection:
-                connection.rollback()
-            return False
-        finally:
-            if connection:
-                connection.close()
+        if not fields:
+            return True
+        with self.db.get_connection() as conn:
+            cur = conn.execute(
+                "UPDATE log_sources SET " + ", ".join(f"{key} = ?" for key in fields.keys()) +
+                ", updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                list(fields.values()) + [log_source_id],
+            )
+            return cur.rowcount > 0
 
     def delete_log_source(self, log_source_id: int) -> bool:
-        """Delete a log source.
-
-        Args:
-            log_source_id: Log source ID.
-
-        Returns:
-            True if deleted successfully, False otherwise.
-        """
-        connection = None
-        try:
-            connection = self.db.get_connection()
-            cursor = connection.execute(
+        with self.db.get_connection() as conn:
+            return conn.execute(
                 "DELETE FROM log_sources WHERE id = ?",
-                (log_source_id,),
-            )
-            connection.commit()
+                (log_source_id,)
+            ).rowcount > 0
 
-            deleted = cursor.rowcount > 0
-            if deleted:
-                print(f"Deleted log source ID {log_source_id}")
+    def set_last_scanned(self, log_source_id: int, timestamp: datetime | None = None) -> bool:
+        ts_val = (timestamp or datetime.now()).isoformat()
+        with self.db.get_connection() as conn:
+            return conn.execute(
+                "UPDATE log_sources SET last_event_at = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (ts_val, log_source_id),
+            ).rowcount > 0
 
-            return deleted
+    def get_default_log_sources(self) -> list[LogSource]:
+        return [LogSource(id=i, name=name, source_type="file", source_path=path,
+                          status="unknown", created_at=datetime.now().isoformat(),
+                          updated_at=datetime.now().isoformat())
+                for i, (name, path) in enumerate((
+                    ("SSH Journal", "/var/log/auth.log"),
+                    ("Privileged Logs", "/var/log/authpriv.log"),
+                    ("Secure Logs", "/var/log/secure")), 1)]
 
-        except Exception as e:
-            print(f"Error deleting log source ID {log_source_id}: {e}")
-            if connection:
-                connection.rollback()
-            return False
-        finally:
-            if connection:
-                connection.close()
-
-    def set_last_scanned(
-        self,
-        log_source_id: int,
-        timestamp: Optional[datetime] = None,
-    ) -> bool:
-        """Update the last scanned timestamp for a log source.
-
-        Args:
-            log_source_id: Log source ID.
-            timestamp: Timestamp to set (defaults to now).
-
-        Returns:
-            True if updated successfully, False otherwise.
-        """
-        if timestamp is None:
-            timestamp = datetime.now()
-
-        connection = None
-        try:
-            connection = self.db.get_connection()
-            cursor = connection.execute(
-                "UPDATE log_sources SET last_scanned = ? WHERE id = ?",
-                (timestamp.isoformat(), log_source_id),
-            )
-            connection.commit()
-
-            return cursor.rowcount > 0
-
-        except Exception as e:
-            print(f"Error updating last_scanned for log source ID {log_source_id}: {e}")
-            if connection:
-                connection.rollback()
-            return False
-        finally:
-            if connection:
-                connection.close()
-
-    def get_default_log_sources(self) -> List[LogSource]:
-        """Get default log sources.
-
-        Returns:
-            List of default LogSource objects.
-        """
-        return [
-            LogSource(
-                id=1,
-                name="SSH Journal",
-                source_type="/var/log/auth.log",
-                source_path="/var/log/auth.log",
-                config_json=None,
-                enabled=1,
-                status="active",
-                last_event_at=None,
-                last_error=None,
-                events_today=0,
-                parse_errors_today=0,
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-            ),
-            LogSource(
-                id=2,
-                name="Privileged Logs",
-                source_type="/var/log/authpriv.log",
-                source_path="/var/log/authpriv.log",
-                config_json=None,
-                enabled=1,
-                status="active",
-                last_event_at=None,
-                last_error=None,
-                events_today=0,
-                parse_errors_today=0,
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-            ),
-            LogSource(
-                id=3,
-                name="Secure Logs",
-                source_type="/var/log/secure",
-                source_path="/var/log/secure",
-                config_json=None,
-                enabled=1,
-                status="active",
-                last_event_at=None,
-                last_error=None,
-                events_today=0,
-                parse_errors_today=0,
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-            ),
-        ]
-
-    def ensure_default_log_sources_exist(self) -> List[LogSource]:
-        """Ensure default log sources exist in the database.
-
-        Returns:
-            List of existing LogSource objects.
-        """
-        existing = self.get_all_log_sources()
-
-        # Check if we need to create default sources
-        names = {log_source.name for log_source in existing}
-
-        defaults = self.get_default_log_sources()
-        created = []
-
-        for default in defaults:
-            if default.name not in names:
-                self.create_log_source(
-                    name=default.name,
-                    device_path=default.source_type,
-                    parser_type="default",
-                    status=default.status,
-                )
-                created.append(default)
-
+    def ensure_default_log_sources_exist(self) -> list[LogSource]:
+        for source in self.get_default_log_sources():
+            if self.get_log_source_by_name(source.name) is None:
+                self.create_log_source(source.name, source.source_path or "", source.source_type)
         return self.get_all_log_sources()
