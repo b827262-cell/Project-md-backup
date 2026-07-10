@@ -5,7 +5,7 @@
 **Implementation Owner**: GPT-5.6
 **Verification Owner**: AGY
 
-**Current state**: GPT-5.6 repair implementation complete. Self-validation passed on tested HEAD e2eea5ee7292c011854b67b2a1de7f06f3644490. Ready for AGY independent regression verification. P1 Release Gate has not passed.
+**Current state**: GPT-5.6 second repair implementation complete. Self-validation passed on tested HEAD `<pending-second-repair-full-sha>`. Ready for AGY second independent regression verification. 30-second ingestion and P1 Release Gate remain pending.
 
 ---
 
@@ -13,7 +13,7 @@
 
 - [x] 建立 SQLite migration、WAL、busy timeout 與 transaction 管理
 - [x] 實作 `attack_events`、`attackers`、`log_sources` 表
-- [x] 實作 SSH Journal Collector 與 cursor 保存
+- [x] 實作 auth.log byte-offset Collector 與可設定 cursor 保存（非 journalctl cursor）
 - [x] 實作 Failed password／Invalid user Parser
 - [x] 驗證 IPv4、IPv6、Port、時間與欄位長度
 - [x] 實作 `event_key` 去重與 attackers UPSERT
@@ -25,11 +25,11 @@
 ## 2. 已完成的工作
 
 - ✅ Database schema 設計 (001_initial.sql) 及其對齊 P1 規格
-- ✅ SSH Journal Collector 實作 (cursor persistence, event deduplication)
+- ✅ auth.log byte-offset Collector 實作 (cursor persistence, event deduplication)
 - ✅ SSH Parser 實作 (Failed password / Invalid user, 支援歷史日誌與 Syslog 時間)
 - ✅ CLI attack report tool (對齊 P1 schema，且無靜默退回與隱式 imports 問題)
 - ✅ Test fixtures (ssh_failure.log, ssh_invalid_user.log, ssh_malformed.log)
-- ✅ Unit tests / Integration tests (所有測試檔案均採用乾淨 DB 暫存與暫存 cursor)
+- ✅ Unit tests / Integration tests（目前 self-validation: 83 passed；AGY second regression 尚未執行）
 - ✅ Handoff 文件與狀態報告同步
 
 ---

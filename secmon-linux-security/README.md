@@ -62,7 +62,7 @@ flowchart LR
 
 | 元件 | 職責 |
 |---|---|
-| Collector | 讀取 journalctl、Nginx、Suricata 與 CrowdSec 資料 |
+| Collector | P1 目前讀取 auth.log byte-offset；其他來源仍屬後續整合範圍 |
 | Parser | 正規化來源 IP、時間、Port、攻擊類型、嚴重度與原始日誌 |
 | Threat Engine | 去重、事件聚合、威脅評分、規則判定、建立告警 |
 | Blocker | 檢查白名單並操作 nftables，管理封鎖到期與解除 |

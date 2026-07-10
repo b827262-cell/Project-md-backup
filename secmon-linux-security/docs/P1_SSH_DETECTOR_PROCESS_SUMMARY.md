@@ -18,11 +18,17 @@
 ### 2.2 修正收集器去重與 Cursor
 * 解決了測試直接依賴 `var/ssh_cursor.position` 原地殘留的問題，並在測試中採用隨機且獨立的暫存 cursor 檔案。
 * 重構 `_process_batch` 中的新攻擊者統計邏輯：寫入前使用 `SELECT 1 FROM attackers WHERE src_ip = ?` 進行判斷，唯有真正的新攻擊者才增加 `new_attackers` 計數。
+* Cursor precedence 為 constructor `cursor_path`、`SECMON_SSH_CURSOR_PATH`、最後才是 project default；本 collector 使用 auth.log byte offset，不是 journalctl cursor。
 
 ### 2.3 修復 Parser 與日誌時間戳記 fallback
 * 刪除了 minimum timestamp 的「太舊時間」校驗，完全支援歷史與 Syslog 類型的 SSH 時間戳記。
 * 精細化時間戳記 fallback 邏輯：唯有日誌行開頭為 `Failed password` 或 `Invalid user`（或帶有 optional `sshd[1234]: ` 前綴）且完全無法解析時間時，方以目前時間作為 fallback；若本身包含 date-like 特徵卻無法構成合規 ISO 格式時，則正確拋出 `ValueError`。
 * 容許使用者名稱開頭與結尾帶有底線 `_`（Linux 系統帳戶常見樣式），並同步修正對應測試案例。
+
+### 2.4 AGY second-repair edge cases
+* SSH source port 僅接受 1–65535，並保存至 `attack_events.src_port`。
+* Future timestamp policy 為 reference time + 5 分鐘；歷史時間仍接受。
+* 先匹配 `Failed password for invalid user`，避免 username 被解析成 `invalid`。
 
 ### 2.4 重構測試套件（Test Contract）
 * 將所有測試檔案全面遷移至 P1 命名規格。
@@ -40,7 +46,7 @@
 1. **乾淨資料庫遷移測試**：
    - 於 `/tmp/secmon-p1-final.db` 上運行遷移，並透過 `PRAGMA quick_check` 與 `foreign_key_check` 確實驗證完整無異。
 2. **入庫與重播**：
-   - 使用 `tests/fixtures/ssh_failure.log` 完成 118 筆失敗登入事件寫入。重播時，`attack_events` 及 `attackers` 的事件數均未重複累計，去重斷言無誤。
+   - 使用 fixture 完成 102 筆有效事件寫入；非法 port 行被拒絕。重播時，`attack_events` 及 `attackers` 的事件數均未重複累計。
 3. **CLI 報表**：
    - 運行 `scripts/attack_report.py` 成功且格式整齊，且當指定不存在的資料庫路徑時，正確印出找不到資料庫的錯誤並以 exit code 1 結束，無靜默退回之隱憂。
 
