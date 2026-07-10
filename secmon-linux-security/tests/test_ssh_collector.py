@@ -44,7 +44,7 @@ class TestSSHLogEntry:
             failure_reason="Failed password"
         )
         # Username should be empty string in event key
-        assert entry.event_key == "2024-01-15 10:30:45|192.168.1.100|ssh|"
+        assert entry.event_key == "2024-01-15 10:30:45|192.168.1.100|22|ssh||Failed password"
 
 
 class TestSSHCollector:

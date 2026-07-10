@@ -5,6 +5,7 @@ parses them, and stores them in the database with deduplication.
 """
 
 import logging
+import os
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -28,7 +29,7 @@ class Batch:
 class SSHCollector:
     """Collects SSH authentication events from journal logs."""
 
-    def __init__(self, database_path: Path | None = None):
+    def __init__(self, database_path: Path | None = None, cursor_path: Path | None = None):
         """Initialize SSH Journal Collector.
 
         Args:
@@ -37,7 +38,9 @@ class SSHCollector:
         self.settings = get_settings()
         self.database_path = database_path or self.settings.database_path
         self.parser = SSHParser()
-        self.cursor_position_file = Path("./var/ssh_cursor.position")
+        self.cursor_position_file = cursor_path or Path(
+            os.environ.get("SECMON_SSH_CURSOR_PATH", "./var/ssh_cursor.position")
+        )
         self.batch_size = 100
         self._source_id: int | None = None
         self._initialize_log_source()
@@ -126,7 +129,10 @@ class SSHCollector:
         Returns:
             Unique event key string.
         """
-        return f"{entry.timestamp}|{entry.source_ip}|{entry.service}|{entry.username or ''}"
+        return (
+            f"{entry.detected_at}|{entry.src_ip}|{entry.src_port}|{entry.username or ''}|"
+            f"{entry.attack_type}|{entry.source_id or self._source_id}"
+        )
 
     def _get_upsert_events_query(self) -> str:
         """Get SQL query for upserting attack events.
@@ -180,6 +186,7 @@ class SSHCollector:
                 events.append(AttackEvent(
                     event_key=entry.event_key, detected_at=entry.timestamp,
                     src_ip=entry.source_ip,
+                    src_port=entry.src_port,
                     attack_type=("ssh_invalid_user" if entry.failure_reason == "Invalid user"
                                  else "ssh_failed_password"),
                     signature=entry.failure_reason, username=entry.username,

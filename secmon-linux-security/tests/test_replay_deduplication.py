@@ -61,7 +61,7 @@ class TestReplayDeduplication:
 
         # Fixture file has many lines with SSH failures
         assert total_events > 0, "No events found in database, expected >0"
-        assert total_events == 118, f"Expected 118 events, got {total_events}"
+        assert total_events == 102, f"Expected 102 valid events, got {total_events}"
 
     def test_multiple_replays_no_duplicates(self, migrated_db, cursor_path):
         """Test multiple replays produce no new events and no increase in total_events."""
@@ -75,7 +75,7 @@ class TestReplayDeduplication:
         init_events, init_attackers = collector.collect_from_file(
             str(fixture_path), batch_size=100
         )
-        assert init_events == 118
+        assert init_events == 102
 
         # Check total events count and attackers total events sum after first import
         conn = sqlite3.connect(migrated_db)
@@ -87,7 +87,7 @@ class TestReplayDeduplication:
         ).fetchone()[0]
         conn.close()
 
-        assert total_events_1 == 118
+        assert total_events_1 == 102
         assert total_attacker_events_1 is not None
         assert total_attacker_events_1 > 0
 
