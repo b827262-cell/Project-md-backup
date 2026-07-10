@@ -15,13 +15,17 @@ class SSHLogEntry:
     service: str
     username: str | None
     failure_reason: str
+    src_port: int = 22
 
     @property
     def event_key(self) -> str:
         """Generate unique event key for deduplication."""
-        return f"{self.timestamp}|{self.source_ip}|{self.service}|{self.username or ''}"
+        return (
+            f"{self.timestamp}|{self.source_ip}|{self.src_port}|{self.service}|"
+            f"{self.username or ''}|{self.failure_reason}"
+        )
 
-    def is_valid(self) -> tuple[bool, list[str]]:
+    def is_valid(self, reference_time: datetime | None = None) -> tuple[bool, list[str]]:
         """
         Validate the SSH log entry fields.
 
@@ -31,7 +35,7 @@ class SSHLogEntry:
         errors = []
 
         # Validate timestamp format
-        timestamp_error = self._validate_timestamp()
+        timestamp_error = self._validate_timestamp(reference_time)
         if timestamp_error:
             errors.append(timestamp_error)
 
@@ -51,13 +55,17 @@ class SSHLogEntry:
                 errors.append(username_error)
 
         # Validate failure reason
+        port_error = self._validate_port()
+        if port_error:
+            errors.append(port_error)
+
         failure_error = self._validate_failure_reason()
         if failure_error:
             errors.append(failure_error)
 
         return (len(errors) == 0, errors)
 
-    def _validate_timestamp(self) -> str | None:
+    def _validate_timestamp(self, reference_time: datetime | None = None) -> str | None:
         """Validate timestamp format is YYYY-MM-DD HH:MM:SS."""
         if not self.timestamp:
             return "Timestamp is empty"
@@ -73,10 +81,16 @@ class SSHLogEntry:
             return f"Invalid timestamp format '{self.timestamp}': {str(e)}"
 
         # Check maximum timestamp (future timestamps, allow up to 2 hours clock drift)
-        max_time = datetime.now() + timedelta(hours=2)
+        max_time = (reference_time or datetime.now()) + timedelta(minutes=5)
         if parsed > max_time:
             return f"Timestamp is in the future: {self.timestamp}"
 
+        return None
+
+    def _validate_port(self) -> str | None:
+        """Validate the SSH source port range."""
+        if not isinstance(self.src_port, int) or not 1 <= self.src_port <= 65535:
+            return f"Invalid source port: {self.src_port}"
         return None
 
     def _validate_source_ip(self) -> str | None:
@@ -122,7 +136,7 @@ class SSHLogEntry:
             return f"Username contains invalid characters: {self.username}"
 
         # Username must not start/end with dot or hyphen
-        if self.username[0] in ['.', '-'] or self.username[-1] in ['.', '-']:
+        if self.username[0] in [".", "-"] or self.username[-1] in [".", "-"]:
             return f"Username cannot start or end with dot or hyphen: {self.username}"
 
         return None
@@ -133,7 +147,9 @@ class SSHLogEntry:
             return "Failure reason is empty"
 
         # Valid failure reasons
-        valid_reasons = ["Failed password", "Invalid user", "Failed login"]
+        valid_reasons = [
+            "Failed password", "Failed password for invalid user", "Invalid user", "Failed login"
+        ]
         if self.failure_reason not in valid_reasons:
             valid_list = ", ".join(valid_reasons)
             return f"Invalid failure reason '{self.failure_reason}'. Valid values: {valid_list}"
@@ -145,12 +161,18 @@ class SSHParser:
     """Parser for SSH authentication logs."""
 
     # Pattern for failed password attempts
+    PATTERN_FAILED_INVALID_USER = re.compile(
+        r"Failed password for invalid user (\S+) from (\S+) port (\S+) ssh2"
+    )
     PATTERN_FAILED_PASSWORD = re.compile(
-        r"Failed password for (\S+) from (\S+) port \d+ ssh2"
+        r"Failed password for (\S+) from (\S+) port (\S+) ssh2"
     )
 
     # Pattern for invalid user attempts
-    PATTERN_INVALID_USER = re.compile(r"Invalid user (\S+) from (\S+) port \d+ ssh2")
+    PATTERN_INVALID_USER = re.compile(r"Invalid user (\S+) from (\S+) port (\S+) ssh2")
+
+    def __init__(self, reference_time: datetime | None = None):
+        self.reference_time = reference_time
 
     def parse_line(self, line: str) -> SSHLogEntry | None:
         """
@@ -168,16 +190,27 @@ class SSHParser:
         if not line or not line.strip():
             return None
 
+        # Match the specific OpenSSH invalid-user failed-password form first.
+        match = self.PATTERN_FAILED_INVALID_USER.search(line)
+        if match:
+            username, source_ip, port_text = match.groups()
+            entry = SSHLogEntry(
+                timestamp=self._extract_timestamp(line), source_ip=source_ip,
+                service="ssh", username=username, src_port=self.validate_port(port_text),
+                failure_reason="Failed password for invalid user",
+            )
+            return self._validate_and_return(entry, line)
+
         # Try failed password pattern
         match = self.PATTERN_FAILED_PASSWORD.search(line)
         if match:
-            username = match.group(1)
-            source_ip = match.group(2)
+            username, source_ip, port_text = match.groups()
             entry = SSHLogEntry(
                 timestamp=self._extract_timestamp(line),
                 source_ip=source_ip,
                 service="ssh",
                 username=username,
+                src_port=self.validate_port(port_text),
                 failure_reason="Failed password",
             )
             return self._validate_and_return(entry, line)
@@ -185,16 +218,20 @@ class SSHParser:
         # Try invalid user pattern
         match = self.PATTERN_INVALID_USER.search(line)
         if match:
-            username = match.group(1)
-            source_ip = match.group(2)
+            username, source_ip, port_text = match.groups()
             entry = SSHLogEntry(
                 timestamp=self._extract_timestamp(line),
                 source_ip=source_ip,
                 service="ssh",
                 username=username,
+                src_port=self.validate_port(port_text),
                 failure_reason="Invalid user",
             )
             return self._validate_and_return(entry, line)
+
+        # A recognizable failure marker with no complete match is malformed.
+        if "Failed password" in line or re.search(r"\bInvalid user\b", line):
+            raise ValueError(f"Malformed SSH authentication failure: {line.strip()}")
 
         # Not an SSH authentication failure line
         return None
@@ -213,13 +250,24 @@ class SSHParser:
         Raises:
             ValueError: If the entry contains invalid data.
         """
-        is_valid, errors = entry.is_valid()
+        is_valid, errors = entry.is_valid(self.reference_time)
 
         if not is_valid:
             error_msg = f"SSH log line '{line.strip()}' has validation errors: {'; '.join(errors)}"
             raise ValueError(error_msg)
 
         return entry
+
+    @staticmethod
+    def validate_port(value: str | int) -> int:
+        """Convert and validate an SSH source port."""
+        try:
+            port = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid source port: {value}") from exc
+        if not 1 <= port <= 65535:
+            raise ValueError(f"invalid source port: {port}")
+        return port
 
     def _extract_timestamp(self, line: str) -> str:
         """

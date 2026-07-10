@@ -230,7 +230,7 @@ class TestSSHLogEntryValidation:
         assert isinstance(event_key, str)
         assert "|" in event_key
         parts = event_key.split("|")
-        assert len(parts) == 4
+        assert len(parts) == 6
 
 
 class TestSSHParserParseLine:
@@ -243,7 +243,7 @@ class TestSSHParserParseLine:
         lines = [
             "Failed password for admin from 192.168.1.100 port 54321 ssh2",
             "Failed password for root from 10.0.0.1 port 12345 ssh2",
-            "Failed password for user from 172.16.0.50 port 67890 ssh2",
+            "Failed password for user from 172.16.0.50 port 65535 ssh2",
         ]
 
         for line in lines:
@@ -261,7 +261,7 @@ class TestSSHParserParseLine:
         lines = [
             "Invalid user admin from 192.168.1.100 port 54321 ssh2",
             "Invalid user root from 10.0.0.1 port 12345 ssh2",
-            "Invalid user user from 172.16.0.50 port 67890 ssh2",
+            "Invalid user user from 172.16.0.50 port 65535 ssh2",
         ]
 
         for line in lines:
@@ -317,9 +317,8 @@ class TestSSHParserParseLine:
             "from 192.168.1.100 port 54321 ssh2"
         )
 
-        entry = parser.parse_line(line)
-        assert entry is not None
-        assert entry.timestamp == future_time
+        with pytest.raises(ValueError, match="future"):
+            parser.parse_line(line)
 
     def test_multiple_timestamps_in_line(self):
         """Test parsing line with multiple timestamps (should extract first)."""
