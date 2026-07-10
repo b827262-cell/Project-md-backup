@@ -41,8 +41,8 @@ Missing timestamps are only tolerated for recognizable SSH failure lines through
 ## Second repair handoff
 
 GPT-5.6 second repair implementation complete.
-Self-validation must be recorded against the full tested HEAD before handoff.
-Ready for AGY second independent regression once the implementation commits are available.
+Self-validation passed on tested HEAD `d26f338d6ac95d571a9dfb700afe643e4683be26`.
+Ready for AGY second independent regression.
 30-second ingestion and the P1 Release Gate remain pending AGY verification.
 
 Required self-validation includes direct venv compileall, Ruff, mypy, grouped and complete pytest, clean migration, replay/deduplication, `src_port` persistence, cursor environment-path behavior, and CLI verification.

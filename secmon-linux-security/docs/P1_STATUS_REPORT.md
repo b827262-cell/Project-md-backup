@@ -5,7 +5,7 @@
 **Implementation Owner**: GPT-5.6
 **Verification Owner**: AGY
 
-**Current state**: GPT-5.6 second repair implementation complete. Self-validation passed on tested HEAD `<pending-second-repair-full-sha>`. Ready for AGY second independent regression verification. 30-second ingestion and P1 Release Gate remain pending.
+**Current state**: GPT-5.6 second repair implementation complete. Self-validation passed on tested HEAD `d26f338d6ac95d571a9dfb700afe643e4683be26`. Ready for AGY second independent regression verification. 30-second ingestion and P1 Release Gate remain pending.
 
 ---
 
@@ -29,7 +29,7 @@
 - ✅ SSH Parser 實作 (Failed password / Invalid user, 支援歷史日誌與 Syslog 時間)
 - ✅ CLI attack report tool (對齊 P1 schema，且無靜默退回與隱式 imports 問題)
 - ✅ Test fixtures (ssh_failure.log, ssh_invalid_user.log, ssh_malformed.log)
-- ✅ Unit tests / Integration tests（目前 self-validation: 83 passed；AGY second regression 尚未執行）
+- ✅ Unit tests / Integration tests（目前 self-validation: 85 passed；AGY second regression 尚未執行）
 - ✅ Handoff 文件與狀態報告同步
 
 ---
