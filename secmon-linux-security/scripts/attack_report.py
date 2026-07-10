@@ -6,21 +6,20 @@ Generates reports on SSH authentication failures and attacking IPs.
 """
 
 import argparse
+import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-import sqlite3
-
 
 def get_database_path() -> Path:
-    """Get database path from settings or default."""
-    try:
-        from secmon_backend.config import get_settings
-        settings = get_settings()
-        return settings.database_path
-    except Exception:
-        return Path("./var/secmon.db")
+    """Get the configured database path without hiding import errors."""
+    import os
+    configured = os.environ.get("SECMON_DATABASE_PATH")
+    if configured:
+        return Path(configured)
+    from backend.config import get_settings
+    return get_settings().database_path
 
 
 def generate_report(
@@ -54,7 +53,7 @@ def generate_report(
 
         # Get total attack count
         cursor = conn.execute(
-            "SELECT COUNT(*) as total FROM attack_events WHERE timestamp >= ?",
+            "SELECT COUNT(*) as total FROM attack_events WHERE detected_at >= ?",
             (threshold,),
         )
         total_attacks = cursor.fetchone()["total"]
@@ -63,14 +62,14 @@ def generate_report(
         cursor = conn.execute(
             f"""
             SELECT
-                source_ip,
+                src_ip,
                 COUNT(*) as attack_count,
-                MAX(timestamp) as last_seen,
-                MIN(timestamp) as first_seen,
+                MAX(detected_at) as last_seen,
+                MIN(detected_at) as first_seen,
                 GROUP_CONCAT(DISTINCT username) as usernames
             FROM attack_events
-            WHERE timestamp >= ?
-            GROUP BY source_ip
+            WHERE detected_at >= ?
+            GROUP BY src_ip
             ORDER BY attack_count DESC
             LIMIT {top_n}
             """,
@@ -80,21 +79,26 @@ def generate_report(
 
         # Get attack distribution by service
         cursor = conn.execute(
-            "SELECT service, COUNT(*) as count FROM attack_events WHERE timestamp >= ? GROUP BY service ORDER BY count DESC",
+            "SELECT attack_type as service, COUNT(*) as count "
+            "FROM attack_events WHERE detected_at >= ? "
+            "GROUP BY attack_type ORDER BY count DESC",
             (threshold,),
         )
         service_distribution = cursor.fetchall()
 
         # Get attack distribution by failure reason
         cursor = conn.execute(
-            "SELECT failure_reason, COUNT(*) as count FROM attack_events WHERE timestamp >= ? GROUP BY failure_reason ORDER BY count DESC",
+            "SELECT signature as failure_reason, COUNT(*) as count "
+            "FROM attack_events WHERE detected_at >= ? "
+            "GROUP BY signature ORDER BY count DESC",
             (threshold,),
         )
         failure_reasons = cursor.fetchall()
 
         # Get unique attackers count
         cursor = conn.execute(
-            "SELECT COUNT(DISTINCT source_ip) as unique_attackers FROM attack_events WHERE timestamp >= ?",
+            "SELECT COUNT(DISTINCT src_ip) as unique_attackers "
+            "FROM attack_events WHERE detected_at >= ?",
             (threshold,),
         )
         unique_attackers = cursor.fetchone()["unique_attackers"]
@@ -140,7 +144,7 @@ def print_report(report: dict) -> None:
 
         for i, attacker in enumerate(report["top_attackers"], 1):
             print(
-                f"{i:<6}{attacker['source_ip']:<16}{attacker['attack_count']:<8}"
+                f"{i:<6}{attacker['src_ip']:<16}{attacker['attack_count']:<8}"
                 f"{attacker['first_seen'][:19]:<20}{attacker['last_seen'][:19]:<20}"
             )
             if report["detailed"] and attacker.get("usernames"):
