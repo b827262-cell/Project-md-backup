@@ -1,10 +1,9 @@
 """SSH log parser for parsing authentication events."""
 
+import ipaddress
 import re
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Tuple, Optional
-import ipaddress
+from datetime import datetime, timedelta
 
 
 @dataclass
@@ -22,7 +21,7 @@ class SSHLogEntry:
         """Generate unique event key for deduplication."""
         return f"{self.timestamp}|{self.source_ip}|{self.service}|{self.username or ''}"
 
-    def is_valid(self) -> Tuple[bool, list[str]]:
+    def is_valid(self) -> tuple[bool, list[str]]:
         """
         Validate the SSH log entry fields.
 
@@ -46,7 +45,7 @@ class SSHLogEntry:
             errors.append(f"Service must be 'ssh', got '{self.service}'")
 
         # Validate username (if provided)
-        if self.username:
+        if self.username is not None:
             username_error = self._validate_username()
             if username_error:
                 errors.append(username_error)
@@ -73,15 +72,10 @@ class SSHLogEntry:
         except ValueError as e:
             return f"Invalid timestamp format '{self.timestamp}': {str(e)}"
 
-        # Check maximum timestamp (future timestamps)
-        current_time = datetime.now()
-        if parsed > current_time:
+        # Check maximum timestamp (future timestamps, allow up to 2 hours clock drift)
+        max_time = datetime.now() + timedelta(hours=2)
+        if parsed > max_time:
             return f"Timestamp is in the future: {self.timestamp}"
-
-        # Check minimum timestamp (allow recent past)
-        min_time = current_time.replace(hour=0, minute=0, second=0)
-        if parsed < min_time:
-            return f"Timestamp is too old: {self.timestamp}"
 
         return None
 
@@ -102,7 +96,8 @@ class SSHLogEntry:
         try:
             # Try parsing as IPv6
             ipaddress.IPv6Address(self.source_ip)
-            if len(self.source_ip) > 45:  # Max IPv6 length: "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+            # Max IPv6 length: "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+            if len(self.source_ip) > 45:
                 return f"IPv6 address too long: {self.source_ip}"
             return None
         except ipaddress.AddressValueError:
@@ -110,7 +105,7 @@ class SSHLogEntry:
 
     def _validate_username(self) -> str | None:
         """Validate username format."""
-        if not self.username:
+        if self.username is None:
             return None
 
         # Username must be non-empty
@@ -126,9 +121,9 @@ class SSHLogEntry:
         if not re.match(r"^[a-zA-Z0-9._-]+$", self.username):
             return f"Username contains invalid characters: {self.username}"
 
-        # Username must not start/end with special characters
-        if self.username[0] in ['.', '-', '_'] or self.username[-1] in ['.', '-', '_']:
-            return f"Username cannot start or end with special characters: {self.username}"
+        # Username must not start/end with dot or hyphen
+        if self.username[0] in ['.', '-'] or self.username[-1] in ['.', '-']:
+            return f"Username cannot start or end with dot or hyphen: {self.username}"
 
         return None
 
@@ -140,7 +135,8 @@ class SSHLogEntry:
         # Valid failure reasons
         valid_reasons = ["Failed password", "Invalid user", "Failed login"]
         if self.failure_reason not in valid_reasons:
-            return f"Invalid failure reason '{self.failure_reason}'. Valid values: {', '.join(valid_reasons)}"
+            valid_list = ", ".join(valid_reasons)
+            return f"Invalid failure reason '{self.failure_reason}'. Valid values: {valid_list}"
 
         return None
 
@@ -240,22 +236,37 @@ class SSHParser:
         Raises:
             ValueError: If no valid timestamp can be extracted.
         """
-        # Extract first timestamp in the line (first group of digits)
+        from datetime import datetime
+
+        # 1. Try to extract first timestamp in the line (first group of digits)
         match = re.search(r"(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})", line)
-        if not match:
-            # Fallback to current timestamp
-            from datetime import datetime
+        if match:
+            return match.group(1)
+
+        # 2. Try to extract syslog style timestamp
+        syslog_match = re.search(r"([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})", line)
+        if syslog_match:
+            month = datetime.strptime(syslog_match.group(1), "%b").month
+            timestamp = (
+                f"{datetime.now().year}-{month:02d}-{int(syslog_match.group(2)):02d} "
+                f"{syslog_match.group(3)}"
+            )
+            return timestamp
+
+        # 3. If there is a date pattern but not a full timestamp, raise ValueError
+        if (re.search(r"\d{4}-\d{2}-\d{2}", line) or
+                re.search(r"[A-Z][a-z]{2}\s+\d{1,2}", line)):
+            raise ValueError(
+                "SSH log line has no supported timestamp; provide an ISO timestamp "
+                "or normalize the journal timestamp before parsing"
+            )
+
+        # 4. Fallback to current time if the line starts with known SSH failure patterns
+        clean_line = line.strip()
+        if re.match(r"^(?:sshd\[\d+\]:\s+)?(?:Failed password|Invalid user)", clean_line):
             return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        timestamp = match.group(1)
-
-        # Validate the extracted timestamp
-        try:
-            datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            # If fallback timestamp is invalid, raise error
-            from datetime import datetime
-            fallback = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            raise ValueError(f"Could not extract valid timestamp from line: {line.strip()}")
-
-        return timestamp
+        raise ValueError(
+            "SSH log line has no supported timestamp; provide an ISO timestamp "
+            "or normalize the journal timestamp before parsing"
+        )
