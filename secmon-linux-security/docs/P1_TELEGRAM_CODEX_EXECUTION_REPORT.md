@@ -12,6 +12,7 @@ Implemented the Telegram execution slice described in
 - Added a Telegram notifier at `backend/notifiers/telegram.py`.
 - Extended collector settings for log path, cursor path, interval, and Telegram options.
 - Integrated aggregated Telegram alerts into `SSHCollector`.
+- Expanded regression coverage for the collector loop, Telegram error paths, and collector/Telegram integration.
 - Kept notifier sending outside the SQLite transaction boundary.
 - Added regression tests for notifier behavior and collector alert aggregation.
 - Updated the example environment template with the new configuration keys.
@@ -25,6 +26,8 @@ Implemented the Telegram execution slice described in
 - `backend/notifiers/__init__.py`
 - `backend/notifiers/telegram.py`
 - `tests/test_config.py`
+- `tests/test_collector_main.py`
+- `tests/test_collector_telegram.py`
 - `tests/test_ssh_collector.py`
 - `tests/test_telegram_notifier.py`
 - `.env.example`
