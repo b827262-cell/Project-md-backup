@@ -37,7 +37,7 @@ class Database:
                 """INSERT INTO log_sources
                    (name, source_type, source_path, enabled, status)
                    VALUES (?, ?, ?, ?, ?)""",
-                ("SSH Journal", "journal", str(Path("/var/log/auth.log")), 1, "active"),
+                ("SSH Journal", "file", str(Path("/var/log/auth.log")), 1, "healthy"),
             )
             connection.commit()
 

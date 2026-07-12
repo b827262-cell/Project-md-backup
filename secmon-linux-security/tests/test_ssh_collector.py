@@ -148,3 +148,37 @@ class TestSSHCollector:
             custom_log_line = "sshd[5678]: Invalid user admin from 10.0.0.1 port 33444 ssh2"
             entry = collector.parse_ssh_line(custom_log_line)
             assert entry.username == "admin"
+
+    def test_telegram_alert_is_aggregated_once(
+        self, mock_db_path, tmp_path
+    ) -> None:
+        """Test that the collector emits a single aggregated Telegram alert."""
+        log_path = tmp_path / "auth.log"
+        log_path.write_text(
+            "2026-07-10 11:00:00 sshd: Failed password for root from 192.0.2.9 port 22 ssh2\n"
+            "2026-07-10 11:00:01 sshd: Failed password for root from 192.0.2.10 port 23 ssh2\n"
+        )
+
+        notifier = Mock()
+        notifier.send_message.return_value = True
+
+        collector = SSHCollector(
+            database_path=mock_db_path,
+            cursor_path=tmp_path / "cursor",
+            notifier=notifier,
+        )
+        collector.reset_cursor()
+
+        new_events, new_attackers = collector.collect_from_file(str(log_path))
+
+        assert (new_events, new_attackers) == (2, 2)
+        notifier.send_message.assert_called_once()
+        message = notifier.send_message.call_args.args[0]
+        assert "SecMon SSH Attack Alert" in message
+        assert "New events: 2" in message
+        assert "Top sources:" in message
+
+        collector.reset_cursor()
+        replay_events, replay_attackers = collector.collect_from_file(str(log_path))
+        assert (replay_events, replay_attackers) == (0, 0)
+        assert notifier.send_message.call_count == 1
