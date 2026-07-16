@@ -13,6 +13,8 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+from pydantic import SecretStr
+
 from backend.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
@@ -22,7 +24,6 @@ logger = logging.getLogger(__name__)
 class _TelegramResponse:
     status_code: int
     payload: dict[str, Any] | None
-    raw_body: str
 
 
 class TelegramNotifier:
@@ -32,16 +33,23 @@ class TelegramNotifier:
 
     def __init__(
         self,
-        bot_token: str,
+        bot_token: str | SecretStr,
         chat_id: str,
         timeout_seconds: float = 5.0,
     ) -> None:
-        if not bot_token or not bot_token.strip():
+        token = (
+            bot_token.get_secret_value()
+            if isinstance(bot_token, SecretStr)
+            else bot_token
+        )
+        if not token or not token.strip():
             raise ValueError("bot_token is required")
         if not chat_id or not chat_id.strip():
             raise ValueError("chat_id is required")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
 
-        self.bot_token = bot_token.strip()
+        self._bot_token = token.strip()
         self.chat_id = chat_id.strip()
         self.timeout_seconds = timeout_seconds
         self.cooldown_seconds = 0
@@ -58,8 +66,13 @@ class TelegramNotifier:
             logger.info("Telegram notification suppressed by cooldown")
             return False
 
+        api_url = self._api_url()
+        if not api_url.startswith("https://"):
+            logger.warning("Telegram notification refused a non-HTTPS endpoint")
+            return False
+
         request = Request(
-            self._api_url(),
+            api_url,
             data=json.dumps(
                 {
                     "chat_id": self.chat_id,
@@ -80,11 +93,15 @@ class TelegramNotifier:
             logger.warning("Telegram sendMessage failed: %s", self._describe_error(exc))
             return False
 
+        if not 200 <= response.status_code < 300:
+            logger.warning("Telegram API request failed with HTTP status %s", response.status_code)
+            return False
+
         if response.payload is None:
             logger.warning("Telegram API returned malformed JSON (status=%s)", response.status_code)
             return False
 
-        if not response.payload.get("ok", False):
+        if response.payload.get("ok") is not True:
             logger.warning("Telegram API reported failure (status=%s)", response.status_code)
             return False
 
@@ -102,7 +119,6 @@ class TelegramNotifier:
             return _TelegramResponse(
                 status_code=status_code,
                 payload=self._decode_payload(raw_body),
-                raw_body=raw_body,
             )
         except TimeoutError:
             raise
@@ -114,7 +130,6 @@ class TelegramNotifier:
         return _TelegramResponse(
             status_code=status_code,
             payload=self._decode_payload(raw_body),
-            raw_body=raw_body,
         )
 
     @staticmethod
@@ -133,7 +148,7 @@ class TelegramNotifier:
         return (time.monotonic() - self._last_sent_monotonic) < self.cooldown_seconds
 
     def _api_url(self) -> str:
-        return f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        return f"https://api.telegram.org/bot{self._bot_token}/sendMessage"
 
     @staticmethod
     def _normalize_text(text: str) -> str:
@@ -180,8 +195,13 @@ def main(argv: list[str] | None = None) -> int:
         print("Missing Telegram bot token or chat id.", file=sys.stderr)
         return 1
 
+    token_value = (
+        bot_token.get_secret_value()
+        if isinstance(bot_token, SecretStr)
+        else str(bot_token)
+    )
     notifier = TelegramNotifier(
-        str(bot_token),
+        token_value,
         str(chat_id),
         timeout_seconds=float(_setting_value("telegram_timeout_seconds", 5.0)),
     )

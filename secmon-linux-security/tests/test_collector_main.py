@@ -133,3 +133,55 @@ def test_run_collector_loop_returns_nonzero_when_initialization_fails(
     result = collector_main.run_collector_loop()
 
     assert result == 1
+
+
+def test_missing_log_is_recoverable_and_each_round_calls_collector(
+    monkeypatch, tmp_path
+) -> None:
+    missing_log = tmp_path / "missing-auth.log"
+    settings = SimpleNamespace(
+        database_path=tmp_path / "secmon.db",
+        ssh_cursor_path=tmp_path / "cursor.position",
+        ssh_log_path=missing_log,
+        collect_interval_seconds=5.0,
+        log_level="INFO",
+        telegram_enabled=False,
+        telegram_bot_token=None,
+        telegram_chat_id=None,
+    )
+    fake_stop_event = _FakeStopEvent([False, True])
+    fake_collector = _FakeCollector(
+        database_path=settings.database_path,
+        cursor_path=settings.ssh_cursor_path,
+        notifier=None,
+    )
+
+    monkeypatch.setattr(collector_main, "get_settings", lambda: settings)
+    monkeypatch.setattr(collector_main, "_STOP_EVENT", fake_stop_event)
+    monkeypatch.setattr(collector_main, "_install_signal_handlers", lambda: None)
+    monkeypatch.setattr(collector_main, "SSHCollector", lambda **kwargs: fake_collector)
+
+    assert collector_main.run_collector_loop() == 0
+    assert fake_collector.collect_calls == [str(missing_log), str(missing_log)]
+    assert all(
+        timeout >= collector_main._MIN_SLEEP_SECONDS for timeout in fake_stop_event.wait_calls
+    )
+
+
+def test_production_loop_rejects_repository_var_paths(monkeypatch, tmp_path) -> None:
+    settings = SimpleNamespace(
+        environment="production",
+        database_path="./var/secmon.db",
+        ssh_cursor_path="./var/cursor.position",
+        ssh_log_path=tmp_path / "auth.log",
+        collect_interval_seconds=5.0,
+        log_level="INFO",
+        telegram_enabled=False,
+        telegram_bot_token=None,
+        telegram_chat_id=None,
+    )
+    monkeypatch.setattr(collector_main, "get_settings", lambda: settings)
+    monkeypatch.setattr(collector_main, "_STOP_EVENT", _FakeStopEvent([True]))
+    monkeypatch.setattr(collector_main, "_install_signal_handlers", lambda: None)
+
+    assert collector_main.run_collector_loop() == 1

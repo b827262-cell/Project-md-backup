@@ -15,7 +15,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from backend.config import Settings, get_settings
+from backend.config import Settings, get_settings, validate_production_storage_paths
 from backend.models import AttackEvent
 from backend.notifiers import TelegramNotifier
 from backend.parsers.ssh_parser import SSHLogEntry, SSHParser
@@ -52,6 +52,11 @@ class SSHCollector:
                 "ssh_cursor_path",
                 Path("./var/ssh_cursor.position"),
             )
+        )
+        validate_production_storage_paths(
+            str(self._setting_value("environment", "development")),
+            self.database_path,
+            self.cursor_position_file,
         )
         self.batch_size = 100
         self.notifier = notifier

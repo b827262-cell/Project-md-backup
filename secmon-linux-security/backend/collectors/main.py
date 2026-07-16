@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import signal
-import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
@@ -12,7 +11,7 @@ from threading import Event
 from typing import TypeVar, cast
 
 from backend.collectors.ssh_collector import SSHCollector
-from backend.config import Settings, get_settings
+from backend.config import Settings, get_settings, validate_production_storage_paths
 from backend.notifiers import TelegramNotifier
 
 logger = logging.getLogger(__name__)
@@ -51,10 +50,10 @@ def _build_notifier(settings: Settings) -> TelegramNotifier | None:
         return None
     bot_token = _setting_value(settings, "telegram_bot_token", None)
     chat_id = _setting_value(settings, "telegram_chat_id", None)
-    if not bot_token or not chat_id:
+    if bot_token is None or chat_id is None:
         raise ValueError("Telegram is enabled but bot token or chat id is missing")
     notifier = TelegramNotifier(
-        str(bot_token),
+        bot_token,
         str(chat_id),
         timeout_seconds=float(_setting_value(settings, "telegram_timeout_seconds", 5.0)),
     )
@@ -63,23 +62,28 @@ def _build_notifier(settings: Settings) -> TelegramNotifier | None:
 
 
 def run_collector_loop() -> int:
-    settings = get_settings()
-    _configure_logging(str(_setting_value(settings, "log_level", "INFO")))
-    _STOP_EVENT.clear()
-    _install_signal_handlers()
-
     try:
+        settings = get_settings()
+        _configure_logging(str(_setting_value(settings, "log_level", "INFO")))
+        _STOP_EVENT.clear()
+        _install_signal_handlers()
+
+        database_path = Path(
+            _setting_value(settings, "database_path", "/var/lib/secmon/secmon.db")
+        )
+        cursor_path = Path(
+            _setting_value(settings, "ssh_cursor_path", "/var/lib/secmon/ssh.cursor")
+        )
+        validate_production_storage_paths(
+            str(_setting_value(settings, "environment", "development")),
+            database_path,
+            cursor_path,
+        )
         notifier = _build_notifier(settings)
         collector = SSHCollector(
             notifier=notifier,
-            cursor_path=Path(
-                _setting_value(
-                    settings,
-                    "ssh_cursor_path",
-                    "./var/ssh_cursor.position",
-                )
-            ),
-            database_path=Path(_setting_value(settings, "database_path", "./var/secmon.db")),
+            cursor_path=cursor_path,
+            database_path=database_path,
         )
     except Exception:
         logger.exception("Failed to initialize the SSH collector")
@@ -102,31 +106,24 @@ def run_collector_loop() -> int:
     while not _STOP_EVENT.is_set():
         round_start = time.monotonic()
         started_at = datetime.now().isoformat(timespec="seconds")
+        new_events = 0
+        new_attackers = 0
         try:
-            if not log_path.exists():
-                logger.warning("SSH log file not found at %s", log_path)
-                new_events = 0
-                new_attackers = 0
-            else:
-                new_events, new_attackers = collector.collect_from_file(str(log_path))
-            duration = time.monotonic() - round_start
-            next_poll = max(poll_interval - duration, _MIN_SLEEP_SECONDS)
-            logger.info(
-                "SSH collection round start=%s new_events=%d new_attackers=%d "
-                "duration=%.3fs next_poll=%.3fs",
-                started_at,
-                new_events,
-                new_attackers,
-                duration,
-                next_poll,
-            )
-        except (sqlite3.Error, ValueError) as exc:
-            logger.exception("Unrecoverable collector error: %s", exc)
-            return 1
+            new_events, new_attackers = collector.collect_from_file(str(log_path))
         except Exception as exc:
             logger.warning("Recoverable collection error: %s", exc, exc_info=True)
-            duration = time.monotonic() - round_start
-            next_poll = max(poll_interval - duration, _MIN_SLEEP_SECONDS)
+
+        duration = time.monotonic() - round_start
+        next_poll = max(poll_interval - duration, _MIN_SLEEP_SECONDS)
+        logger.info(
+            "SSH collection round start=%s new_events=%d new_attackers=%d "
+            "duration=%.3fs next_poll=%.3fs",
+            started_at,
+            new_events,
+            new_attackers,
+            duration,
+            next_poll,
+        )
 
         if _STOP_EVENT.wait(next_poll):
             break
