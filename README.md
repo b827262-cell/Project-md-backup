@@ -9,6 +9,7 @@
 llama.cpp 多 GPU（本機 CUDA + 遠端 RPC）部署問題的診斷過程。
 
 - [GLM-4.7-Flash 載入失敗診斷（RTX 3060 + RPC RTX 5060）](reports/glm47-flash-vram-oom-process-20260811.md) — MLA 架構 KV cache OOM 與 RPC compute buffer 配置失敗
+- [GLM-4.7-Flash 32K／40960／60:40 與 KV 量化追蹤測試](reports/glm47-flash-followup-tests-20260812.md) — 更正 RPC0 容量判讀，記錄 context 與 split probes，審驗 q8_0 + Flash Attention 路徑
 
 ### SecMon Linux Security Monitor
 
