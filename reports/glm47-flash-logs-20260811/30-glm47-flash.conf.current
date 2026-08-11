@@ -1,0 +1,45 @@
+ID="glm47"
+MENU_NO="3"
+NAME="GLM-4.7-Flash IQ4_XS"
+ENABLED="1"
+
+SERVER="/home/b827262/project/Qwen36llm/llama-muse/build-muse-rpc-cuda/bin/llama-server"
+
+MODEL="/home/b827262/project/Qwen36llm/GLM-4.7-Flash/zai-org_GLM-4.7-Flash-IQ4_XS.gguf"
+
+ALIAS="glm-4.7-flash"
+
+RPC="10.0.3.67:50053"
+
+DEVICES="CUDA0,RPC0"
+
+TENSOR_SPLIT="59,41"
+
+CONTEXT="32768"
+
+PARALLEL="1"
+
+PORT="8081"
+
+LOCAL_FREE_MIN_MIB="11500"
+LOCAL_FREE_TOLERANCE_MIB="250"
+
+REMOTE_FREE_MIN_MIB="0"
+REMOTE_VRAM_CHECK_CMD=""
+
+SERVER_LD_LIBRARY_PATH=""
+
+STOP_GRACE_SEC="30"
+START_TIMEOUT_SEC="180"
+
+EXTRA_ARGS=(
+  "-ngl" "99"
+  "-b" "512"
+  "-ub" "128"
+  "--fit" "off"
+  "--flash-attn" "off"
+  "--jinja"
+  "--temp" "0.7"
+  "--top-p" "1.0"
+  "--metrics"
+)

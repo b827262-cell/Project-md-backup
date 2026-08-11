@@ -1,0 +1,17 @@
+0.00.063.832 I cmn  common_param: common_params_print_info: verbosity = 3 (adjust with the `-lv N` CLI arg)
+0.00.159.209 W srv  llama_server: -----------------
+0.00.159.211 W srv  llama_server: CORS is set to allow all origins ('*') and no API key is set
+0.00.159.212 W srv  llama_server: this can be a security risk (cross-origin attacks)
+0.00.159.212 W srv  llama_server: more info: https://github.com/ggml-org/llama.cpp/pull/25655
+0.00.159.212 W srv  llama_server: -----------------
+0.00.160.473 I srv    load_model: loading model '/home/b827262/project/Qwen36llm/GLM-4.7-Flash/zai-org_GLM-4.7-Flash-IQ4_XS.gguf'
+0.00.518.529 W load: special_eot_id is not in special_eog_ids - the tokenizer config may be incorrect
+0.00.518.533 W load: special_eom_id is not in special_eog_ids - the tokenizer config may be incorrect
+0.31.365.147 E ggml_backend_cuda_buffer_type_alloc_buffer: allocating 4176.00 MiB on device 0: cudaMalloc failed: out of memory
+0.31.376.430 E alloc_tensor_range: failed to allocate CUDA0 buffer of size 4378853376
+0.31.378.391 E llama_init_from_model: failed to initialize the context: failed to allocate buffer for kv cache
+0.31.378.400 E cmn  common_init_: failed to create context with model '/home/b827262/project/Qwen36llm/GLM-4.7-Flash/zai-org_GLM-4.7-Flash-IQ4_XS.gguf'
+0.31.378.401 E cmn  common_init_: failed to create context with model '/home/b827262/project/Qwen36llm/GLM-4.7-Flash/zai-org_GLM-4.7-Flash-IQ4_XS.gguf'
+0.31.378.404 E srv    load_model: failed to create_context with model '/home/b827262/project/Qwen36llm/GLM-4.7-Flash/zai-org_GLM-4.7-Flash-IQ4_XS.gguf'
+0.31.378.411 I srv    operator(): operator(): cleaning up before exit...
+0.31.379.089 E srv  llama_server: exiting due to model loading error
